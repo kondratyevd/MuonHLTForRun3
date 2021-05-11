@@ -1,0 +1,42 @@
+<use name="CommonTools/Utils"/>
+<use name="FWCore/Framework"/>
+<use name="FWCore/PluginManager"/>
+<use name="FWCore/ParameterSet"/>
+<use name="DataFormats/Common"/>
+<use name="DataFormats/Candidate"/>
+<use name="DataFormats/PatCandidates"/>
+<use name="PhysicsTools/Utilities"/>
+<use name="CommonTools/UtilAlgos"/>
+<use name="PhysicsTools/PatAlgos"/>
+<use name="CommonTools/CandUtils"/>
+<use name="rootcintex"/>
+<use name="AnalysisDataFormats/TopObjects"/>
+<use name="RecoEgamma/EgammaTools"/>
+<use name="RecoMuon/TrackingTools"/>
+<use name="MagneticField/Engine"/>
+<use name="MagneticField/Records"/>
+
+
+<library name="HLTriggerAnalyzersPlugin" file="*.cc">
+   <use name="HLTrigger/Analyzers"/>
+   <use name="root"/>
+   <use name="rootminuit"/>
+   <use name="clhep"/>
+   <use name="rootrflx"/>
+   <use name="rootmath"/>
+   <use name="RecoMuon/TrackingTools"/>
+   <use name="TrackingTools/Records"/>
+   <Flags EDM_PLUGIN="1"/>
+</library>
+
+<use name="TrackingTools/TrajectoryState"/>
+<use name="MagneticField/Engine"/>
+<use name="MagneticField/Records"/>
+<use name="TrackingTools/Records"/>
+<use name="TrackPropagation/SteppingHelixPropagator"/>
+<use name="RecoMuon/Records"/>
+<use name="RecoMuon/DetLayers"/>
+<!--   <flags   EDM_PLUGIN="1"/> -->
+<export>
+  <lib   name="1"/>
+</export>
