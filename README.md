@@ -34,7 +34,7 @@ scram b -j 8
 ```
 
 ### Obtaining HLT menu
-1. hltGetConfiguration
+1. hltGetConfiguration (only worked at lxplus for me)
 ```shell
 hltGetConfiguration /dev/CMSSW_11_2_0/GRun --type GRun \
 --path HLTriggerFirstPath,HLT_IsoMu24_v*,HLT_Mu50_v*,HLTriggerFinalPath,HLTAnalyzerEndpath \
@@ -42,7 +42,7 @@ hltGetConfiguration /dev/CMSSW_11_2_0/GRun --type GRun \
 ```
 
 2. cmsDriver
-   * Run 3 MC
+* Run 3 MC
 ```shell
 cmsDriver.py hlt_muon \
 --python_filename=hlt_muon_Run3_mc.py \
@@ -127,7 +127,7 @@ process.schedule.extend([process.HLTValidation])
 ```
 
 
-   * 2018 data
+* 2018 data
 ```shell
 cmsDriver.py hlt_muon \
 --python_filename=hlt_muon_Run3_data.py \
@@ -142,7 +142,7 @@ cmsDriver.py hlt_muon \
 -n 100 --no_output --no_exec
 ```
 
-   * optionally, add the following lines at the end of the configuration file
+* optionally, add the following lines at the end of the configuration file
 ```python
 process.options.wantSummary = cms.untracked.bool( True )
 if 'MessageLogger' in process.__dict__:
