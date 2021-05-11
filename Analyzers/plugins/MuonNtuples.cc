@@ -300,7 +300,7 @@ MuonNtuples::MuonNtuples(const edm::ParameterSet& cfg):
     propagatorName_        (cfg.getParameter<std::string>("propagatorName"))
 {
 
-  theService = new MuonServiceProxy(cfg.getParameter<edm::ParameterSet>("ServiceParameters"));
+  theService = new MuonServiceProxy(cfg.getParameter<edm::ParameterSet>("ServiceParameters"), consumesCollector());
   //usesResource("TFileService");
 
   // theSeedLabel = consumes<std::vector<SeedCandidate>>(cfg.getParameter<edm::InputTag>("seedsForOIFromL2"));
