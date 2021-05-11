@@ -76,7 +76,56 @@ process.GlobalTag.toGet = cms.VPSet(
     )
 )
 process.muonGEMDigis.useDBEMap = True
+
+from RecoMuon.TrackingTools.MuonServiceProxy_cff import *
+
+process.muonNtuples = cms.EDAnalyzer("MuonNtuples",
+                   MuonServiceProxy,
+                   offlineVtx               = cms.InputTag("offlinePrimaryVertices"),
+                   offlineMuons             = cms.InputTag("muons"),
+                   triggerResult            = cms.untracked.InputTag("TriggerResults::MYHLT"),
+                   triggerSummary           = cms.untracked.InputTag("hltTriggerSummaryAOD::MYHLT"),
+                   tagTriggerResult         = cms.untracked.InputTag("TriggerResults::HLT"),
+                   tagTriggerSummary        = cms.untracked.InputTag("hltTriggerSummaryAOD::HLT"),
+                   triggerProcess   = cms.string("TEST"),
+                   L3Candidates             = cms.untracked.InputTag("hltIterL3MuonCandidates"),
+                   L3CandidatesNoID         = cms.untracked.InputTag("hltIterL3MuonsNoID"),
+                   L2Candidates             = cms.untracked.InputTag("hltL2MuonCandidates"),
+                   L1Candidates             = cms.untracked.InputTag('hltGtStage2Digis','Muon'),
+                   TkMuCandidates           = cms.untracked.InputTag("hltIterL3OIL3MuonCandidates"),
+                   L3OIMuCandidates         = cms.untracked.InputTag("hltIterL3OIL3MuonCandidates"),
+                   L3IOMuCandidates         = cms.untracked.InputTag("hltIterL3IOFromL2MuonCandidates"),
+                   MuonLinksTag = cms.untracked.InputTag("hltIterL3MuonsFromL2LinksCombination"),
+                   globalMuons = cms.InputTag("globalMuons"),
+                   #theTrackOI               = cms.untracked.InputTag("hltIterL3OIMuonTrackSelectionHighPurity"),
+                   theTrackOI               = cms.untracked.InputTag("hltIterL3OIMuCtfWithMaterialTracks"),
+                   theTrackIOL2             = cms.untracked.InputTag("hltIter3IterL3MuonMerged"),
+                   theTrackIOL1             = cms.untracked.InputTag("hltIter3IterL3FromL1MuonMerged"),
+                   l3filterLabel    = cms.string("hltL3fL1sMu22Or25L1f0L2f10QL3Filtered27Q"),
+                   lumiScalerTag            = cms.untracked.InputTag("scalersRawToDigi"),
+                   puInfoTag                = cms.untracked.InputTag("addPileupInfo"),
+                   genParticlesTag          = cms.untracked.InputTag("genParticles"),
+                   doOffline                = cms.untracked.bool(True),
+                   seedsForOIFromL2         = cms.InputTag("hltIterL3OISeedsFromL2Muons"),
+                   theTrajOI                = cms.untracked.InputTag("hltIterL3OITrackCandidates"),
+                   simTracks            = cms.untracked.InputTag("mix","MergedTrackTruth", "HLT"),
+                   propagatorName       = cms.string('PropagatorWithMaterialParabolicMf'),
+)
+
+process.TFileService = cms.Service("TFileService",
+                               fileName = cms.string("muonNtuple_run3_MC.root"),
+                               closeFileFast = cms.untracked.bool(False)
+)
+process.HLTValidation = cms.EndPath(
+    process.muonNtuples
+)
 ```
+
+then add the following to "Schedule definition":
+```shell
+process.schedule.extend([process.HLTValidation])
+```
+
 
    * 2018 data
 ```shell
