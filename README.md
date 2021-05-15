@@ -58,7 +58,7 @@ cmsDriver.py hlt_muon \
 --customise=HLTrigger/Configuration/MuonHLTForRun3/customizeMuonHLTForRun3.customizeMuonHLTForDoubletRemoval \
 --customise=HLTrigger/Configuration/MuonHLTForRun3/customizeMuonHLTForRun3.customizeMuonHLTForCscSegment \
 --customise=HLTrigger/Configuration/MuonHLTForRun3/customizeMuonHLTForRun3.customizeMuonHLTForGEM \
---customize=HLTrigger/Configuration/MuonHLTForRun3/customizeOIseedingForRun3.customizeOIseeding \
+--customise=HLTrigger/Configuration/MuonHLTForRun3/customizeOIseedingForRun3.customizeOIseeding \
 --filein=/store/mc/Run3Winter20DRMiniAOD/DYToLL_M-50_TuneCP5_14TeV-pythia8/GEN-SIM-RAW/DRFlatPU30to80_110X_mcRun3_2021_realistic_v6-v2/2000\
 0/00A15711-18DF-0846-9B1E-F611AD6076E0.root \
 -n 100 --no_output --no_exec
