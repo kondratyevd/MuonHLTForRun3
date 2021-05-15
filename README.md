@@ -16,6 +16,7 @@ git fetch cms-l1t-offline l1t-integration-CMSSW_11_2_0
 git cms-merge-topic -u cms-l1t-offline:l1t-integration-v105.5
 git cms-addpkg L1Trigger/Configuration
 git cms-addpkg L1Trigger/L1TMuon
+git cms-addpkg RecoMuon/TrackerSeedGenerator
 git clone https://github.com/cms-l1t-offline/L1Trigger-L1TMuon.git L1Trigger/L1TMuon/data
 git cms-addpkg L1Trigger/L1TCalorimeter
 git clone https://github.com/cms-l1t-offline/L1Trigger-L1TCalorimeter.git L1Trigger/L1TCalorimeter/data
@@ -29,6 +30,9 @@ git cms-merge-topic panoskatsoulis:fix_empty_bmtf_ntuples
 # Customizer for Muon HLT
 git cms-addpkg HLTrigger/Configuration
 git clone https://github.com/khaosmos93/MuonHLTForRun3.git HLTrigger/Configuration/python/MuonHLTForRun3
+
+cp -r HLTrigger/Configuration/python/MuonHLTForRun3/Analyzers HLTrigger/
+cp -r HLTrigger/Configuration/python/MuonHLTForRun3/TSG/* RecoMuon/TrackerSeedGenerator/plugins/
 
 scram b -j 8
 ```
