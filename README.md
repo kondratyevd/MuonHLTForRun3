@@ -67,15 +67,16 @@ to
 ```python
 process.GlobalTag = GlobalTag(process.GlobalTag, '112X_mcRun3_2021_realistic_v15', '')
 
-import os
-base = os.environ["CMSSW_BASE"]
-process.GlobalTag.toGet = cms.VPSet(
-    cms.PSet(record = cms.string("GEMeMapRcd"),
-        tag = cms.string("GEMeMapDummy"),
-        connect = cms.string("sqlite_file:" + base + "/src/L1Trigger/Configuration/test/GEMeMapDummy.db")
-    )
-)
-process.muonGEMDigis.useDBEMap = True
+# This part does not work with CRAB, because path to GEMeMapDummy.db is local
+# import os
+# base = os.environ["CMSSW_BASE"]
+# process.GlobalTag.toGet = cms.VPSet(
+#     cms.PSet(record = cms.string("GEMeMapRcd"),
+#         tag = cms.string("GEMeMapDummy"),
+#         connect = cms.string("sqlite_file:" + base + "/src/L1Trigger/Configuration/test/GEMeMapDummy.db")
+#     )
+# )
+# process.muonGEMDigis.useDBEMap = True
 
 from RecoMuon.TrackingTools.MuonServiceProxy_cff import *
 
