@@ -38,7 +38,7 @@ scram b -j 8
 ```
 
 ### Obtaining HLT menu
-1. hltGetConfiguration (only worked at lxplus for me)
+1. hltGetConfiguration (only worked at lxplus for me, then copy to Purdue)
 ```shell
 hltGetConfiguration /dev/CMSSW_11_2_0/GRun --type GRun \
 --path HLTriggerFirstPath,HLT_IsoMu24_v*,HLT_Mu50_v*,HLTriggerFinalPath,HLTAnalyzerEndpath \
@@ -46,7 +46,7 @@ hltGetConfiguration /dev/CMSSW_11_2_0/GRun --type GRun \
 ```
 
 2. cmsDriver
-* Run 3 MC
+
 ```shell
 cmsDriver.py hlt_muon \
 --python_filename=hlt_muon_Run3_mc.py \
@@ -132,33 +132,3 @@ then add the following to "Schedule definition":
 ```shell
 process.schedule.extend([process.HLTValidation])
 ```
-
-
-* 2018 data
-```shell
-cmsDriver.py hlt_muon \
---python_filename=hlt_muon_Run3_data.py \
---step HLT:MuonHLT \
---process MYHLT --era=Run3 \
---data --conditions=auto:run3_data_GRun \
---customise=HLTrigger/Configuration/customizeHLTforCMSSW.customisePixelGainForRun2Input \
---customise=HLTrigger/Configuration/customizeHLTforCMSSW.synchronizeHCALHLTofflineRun3on2018data \
---customise=HLTrigger/Configuration/MuonHLTForRun3/customizeMuonHLTForRun3.customizeMuonHLTForDoubletRemoval \
---customise=HLTrigger/Configuration/MuonHLTForRun3/customizeMuonHLTForRun3.customizeMuonHLTForCscSegment \
---filein=/store/data/Run2018D/EphemeralHLTPhysics1/RAW/v1/000/323/775/00000/0244D183-F28D-2741-9DBF-1638BEDC734E.root \
--n 100 --no_output --no_exec
-```
-
-* optionally, add the following lines at the end of the configuration file
-```python
-process.options.wantSummary = cms.untracked.bool( True )
-if 'MessageLogger' in process.__dict__:
-    process.MessageLogger.categories.append('TriggerSummaryProducerAOD')
-    process.MessageLogger.categories.append('L1GtTrigReport')
-    process.MessageLogger.categories.append('L1TGlobalSummary')
-    process.MessageLogger.categories.append('HLTrigReport')
-    process.MessageLogger.categories.append('FastReport')
-    process.MessageLogger.cerr.FwkReport.reportEvery = 1000
-```
-
-
