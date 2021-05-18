@@ -110,19 +110,8 @@ class MuonNtuples : public edm::EDAnalyzer {
                const edm::Event &,
                bool 
               );
-  
-  void fillMuons(//const edm::Handle<pat::MuonCollection> &,
-                 const edm::Handle<reco::MuonCollection> &,// for AODSIM
-                  trigger::TriggerObjectCollection & hltl3muons,
-                 const edm::Handle<reco::RecoChargedCandidateCollection> & l3cands,
-                 const edm::Handle<reco::MuonTrackLinksCollection>& links,
-                 const reco::Vertex &, 
-                 const edm::Event   & 
-		 );
+
   //*****************************INCLUDED*****************************//
-  //  void fillSeeds(const edm::Handle<std::vector<SeedCandidate>>  &,
-  //                  const edm::Event    &
-  //                  );
   void fillHltTrack(const edm::Handle<reco::TrackCollection>  &,
 		    const edm::Event    &,
                     TrackCollectionType type
@@ -152,8 +141,7 @@ class MuonNtuples : public edm::EDAnalyzer {
   edm::InputTag offlinePVTag_;
   edm::EDGetTokenT<reco::VertexCollection> offlinePVToken_;
   edm::InputTag offlineMuonTag_;
-  edm::EDGetTokenT<std::vector<reco::Muon>> offlineMuonToken_; // for AODSIM
-  //edm::EDGetTokenT<std::vector<pat::Muon>> offlineMuonToken_;
+  edm::EDGetTokenT<std::vector<reco::Muon>> offlineMuonToken_;
   /// file service
   edm::Service<TFileService> outfile_;
 
@@ -239,8 +227,7 @@ MuonNtuples::MuonNtuples(const edm::ParameterSet& cfg):
   offlinePVTag_           (cfg.getParameter<edm::InputTag>("offlineVtx")), 
   offlinePVToken_         (consumes<reco::VertexCollection>(offlinePVTag_)), 
   offlineMuonTag_         (cfg.getParameter<edm::InputTag>("offlineMuons")),
-  offlineMuonToken_       (consumes<std::vector<reco::Muon>>(offlineMuonTag_)), // for AODSIM
-  //offlineMuonToken_       (consumes<std::vector<pat::Muon>>(offlineMuonTag_)),
+  offlineMuonToken_       (consumes<std::vector<reco::Muon>>(offlineMuonTag_)),
 
 //********************************************INCLUDED********************************************//
   theTrackOITag_          (cfg.getUntrackedParameter<edm::InputTag>("theTrackOI")),
@@ -301,9 +288,6 @@ MuonNtuples::MuonNtuples(const edm::ParameterSet& cfg):
 {
 
   theService = new MuonServiceProxy(cfg.getParameter<edm::ParameterSet>("ServiceParameters"), consumesCollector());
-  //usesResource("TFileService");
-
-  // theSeedLabel = consumes<std::vector<SeedCandidate>>(cfg.getParameter<edm::InputTag>("seedsForOIFromL2"));
 
 }
 
@@ -318,9 +302,6 @@ void MuonNtuples::beginJob() {
 void MuonNtuples::endJob() {}
 
 void MuonNtuples::beginRun(const edm::Run & run, const edm::EventSetup & eventSetup) {
-  //edm::ESHandle<TrackAssociatorBase> theHitsAssociator;
-  //eventSetup.get<TrackAssociatorRecord>().get("TrackAssociatorByHits", theHitsAssociator);
-  //theAssociatorByHits = (const TrackAssociatorByHits*)theHitsAssociator.product();
 }
 
 void MuonNtuples::endRun  (const edm::Run & run, const edm::EventSetup & eventSetup) {}
@@ -336,22 +317,7 @@ void MuonNtuples::analyze (const edm::Event &event, const edm::EventSetup &event
   event_.luminosityBlockNumber = event.id().luminosityBlock();
   event_.eventNumber           = event.id().event();
 
-  // Fill vertex info
   if (doOffline_){
-    edm::Handle<reco::VertexCollection> vertices; 
-    event.getByToken(offlinePVToken_, vertices);
-    for(reco::VertexCollection::const_iterator it = vertices->begin(); it != vertices->end(); ++it) {
-      if( !it->isValid())  continue;
-      nGoodVtx++;
-    }
-    event_.nVtx = nGoodVtx;
-    const reco::Vertex           & pv      = vertices->at(0);
-
-  // Handle the offline muon collection and fill offline muons
-    edm::Handle<std::vector<reco::Muon> > muons; // for AODSIM
-    //edm::Handle<std::vector<pat::Muon> > muons;
-    event.getByToken(offlineMuonToken_, muons);
-    //fillMuons(muons, pv, event);
 
     // Fill bx and inst lumi info
     if (event.isRealData()) {
@@ -389,7 +355,6 @@ void MuonNtuples::analyze (const edm::Event &event, const edm::EventSetup &event
   if (!event.isRealData()) 
     MonteCarloStudies(event);
 
-
   //Track Outside-In
   edm::Handle<reco::TrackCollection> trackOI;
   event.getByToken(theTrackOIToken_, trackOI);
@@ -400,10 +365,6 @@ void MuonNtuples::analyze (const edm::Event &event, const edm::EventSetup &event
   //Trajectory outside-in
     edm::Handle<std::vector<Trajectory>> trajOI;
     event.getByToken(theTrajOIToken_, trajOI);
-  
-  // Seeds from TSG for OI
-  //edm::Handle<std::vector<SeedCandidate>> collseed;
-  //event.getByToken(theSeedLabel, collseed);
 
   //Track Inside Out from L2
   edm::Handle<reco::TrackCollection> trackIOL2;
@@ -419,11 +380,6 @@ void MuonNtuples::analyze (const edm::Event &event, const edm::EventSetup &event
   // Fill trigger information for probe muon
   edm::Handle<edm::TriggerResults>   triggerResults;
   edm::Handle<trigger::TriggerEvent> triggerEvent;
-
-  //if(triggerResults.isValid())std::cout<<"Trigger resultsValid"<<std::endl;
- // if(triggerEvent.isValid())std::cout<<"Trigger Event Valid"<<std::endl;
-  //std::cout<<"triggerResultToken_: "<<triggerResultToken_<<std::endl;
-
 
   if (event.getByToken(triggerResultToken_, triggerResults) &&
       event.getByToken(triggerSummToken_  , triggerEvent)) {
@@ -456,9 +412,6 @@ void MuonNtuples::analyze (const edm::Event &event, const edm::EventSetup &event
   edm::Handle<reco::MuonCollection> l3candsNoID;
   if (event.getByToken(l3candNoIDToken_, l3candsNoID))
     fillHltMuons(l3candsNoID, event, HLTCollectionType::iL3NoIDmuons);
-
-
-
 
   // Handle the online muon collection and fill L2 muons //the l2muosn branch
   edm::Handle<reco::RecoChargedCandidateCollection> l2cands;
@@ -508,21 +461,7 @@ void MuonNtuples::analyze (const edm::Event &event, const edm::EventSetup &event
   edm::Handle<trigger::TriggerEvent> triggerSummary;
   event.getByToken(triggerSummToken_, triggerSummary);
 
-
-  edm::Handle<reco::MuonCollection> MuonCol; // for AODSIM
-  //edm::Handle<pat::MuonCollection> MuonCol;
-  event.getByToken(offlineMuonToken_, MuonCol);  
-
-
-
-  reco::MuonCollection Muons; // for AODSIM
-  //pat::MuonCollection Muons;
-  for(auto const& mu : *MuonCol) Muons.push_back(mu);
-
-  //reco::TrackExtraCollection trackerMuons;
-  //for(auto const& tkmu : *trackMuons) trackerMuons.push_back(tkmu);
-
-  size_t L3MuonFilterIndex = (*triggerSummary).filterIndex(edm::InputTag("Mu","","TEST"));//(edm::InputTag( "hltL3fL1sMu22Or25L1f0L2f10QL3Filtered27Q","","TEST"));
+  size_t L3MuonFilterIndex = (*triggerSummary).filterIndex(edm::InputTag("Mu","","TEST"));
   
   trigger::TriggerObjectCollection L3MuonTrigObjects;
   trigger::TriggerObjectCollection allTriggerObjects = triggerSummary->getObjects();
@@ -535,8 +474,6 @@ void MuonNtuples::analyze (const edm::Event &event, const edm::EventSetup &event
       L3MuonTrigObjects.push_back(foundObject);
     }
   }
-
-  fillMuons(muons,L3MuonTrigObjects,l3cands,links, pv, event);
 
   } // close if(doOffline)
 
@@ -562,24 +499,6 @@ void MuonNtuples::analyze (const edm::Event &event, const edm::EventSetup &event
     edm::Handle<reco::RecoChargedCandidateCollection> l2cands;
     if (event.getByToken(l2candToken_, l2cands))
       fillHltMuons(l2cands, event, HLTCollectionType::iL2muons, eventSetup);
-
-    // Seeds from TSG for OI
-    //edm::Handle<std::vector<SeedCandidate>> collseed;
-    //if(event.getByToken(theSeedLabel, collseed)){
-    //  fillSeeds(collseed, event);
-    //}
-
-    // SimTracks
-    //edm::Handle<TrackingParticleCollection> simTracks;
-    //bool simTrackFlag = false;
-    //if(event.getByToken(simTrackToken_, simTracks))
-    //  simTrackFlag = true;
-
-    //    if (trackOIflag & simTrackFlag){
-    //     reco::RecoToSimCollection recoToSim =  theAssociatorByHits->associateRecoToSim(recCollection, simCollection, &event);
-    //}
-
-
   }
 
   // endEvent();
@@ -705,45 +624,6 @@ void MuonNtuples::fillHlt(const edm::Handle<edm::TriggerResults>   & triggerResu
 
 // ---------------------------------------------------------------------
 //**********************************************INCLUDED*********************************************//
-//Incluir hltTrack copiar collection dentro de muons en innertrack
-/*
-void MuonNtuples::fillSeeds(const edm::Handle<std::vector<SeedCandidate>>  & collseed ,
-                               const edm::Event                          & tevent )
-{
-
-  //  std::cout <<  "Number of seeds = " << (*collseed).size() << std::endl;
-  for (unsigned int j(0); j<(*collseed).size(); ++j){
-    SeedCand Seed;
-    Seed.layerId   = (*collseed)[j].layerId;
-    Seed.layerNum  = (*collseed)[j].layerNum;
-    Seed.hitBased  = (*collseed)[j].hitBased;
-    Seed.pt        = (*collseed)[j].pt;
-    Seed.eta       = (*collseed)[j].eta;
-    Seed.phi       = (*collseed)[j].phi;
-    Seed.l2_idx    = (*collseed)[j].l2_idx;
-
-    Seed.evNum = (*collseed)[j].evNum;
- 
-    Seed.tsos_q_p_err = (*collseed)[j].tsos_q_p_err;
-    Seed.tsos_lambda_err = (*collseed)[j].tsos_lambda_err;
-    Seed.tsos_phi_err = (*collseed)[j].tsos_phi_err;
-    Seed.tsos_xT_err = (*collseed)[j].tsos_xT_err;
-    Seed.tsos_yT_err = (*collseed)[j].tsos_yT_err;
-
-    Seed.tsosIP_q_p_err = (*collseed)[j].tsosIP_q_p_err;
-    Seed.tsosIP_lambda_err = (*collseed)[j].tsosIP_lambda_err;
-    Seed.tsosIP_phi_err = (*collseed)[j].tsosIP_phi_err;
-    Seed.tsosIP_xT_err = (*collseed)[j].tsosIP_xT_err;
-    Seed.tsosIP_yT_err = (*collseed)[j].tsosIP_yT_err;
-      
-    Seed.dR_pos = (*collseed)[j].dR_pos;
-    Seed.dR_mom = (*collseed)[j].dR_mom;
-
-    event_.seeds.push_back(Seed);
-  }
-
-}*/
-
 
 void MuonNtuples::fillHltTrack(const edm::Handle<reco::TrackCollection>  & trackm ,
 			       const edm::Event                          & tevent ,
@@ -807,126 +687,6 @@ void MuonNtuples::fillHltTrack(const edm::Handle<reco::TrackCollection>  & track
   }
 }
 //****************************************************************************************************//
-
-// ---------------------------------------------------------------------
-void MuonNtuples::fillMuons(//const edm::Handle<pat::MuonCollection>       & muons ,
-                            const edm::Handle<reco::MuonCollection>       & muons , // for AODSIM
-                            trigger::TriggerObjectCollection & hltl3muons,
-                            const edm::Handle<reco::RecoChargedCandidateCollection> & l3cands,
-                            const edm::Handle<reco::MuonTrackLinksCollection>& links,
-                            const reco::Vertex                            & pv    ,
-                            const edm::Event                              & event )
-{
-
-
-  
-
-
-  int n_mu = 0;
-  for(std::vector<reco::Muon>::const_iterator mu1=muons->begin(); mu1!=muons->end(); ++mu1) // for AODSIM
-    //for(std::vector<pat::Muon>::const_iterator mu1=muons->begin(); mu1!=muons->end(); ++mu1)
-  { 
-
-    n_mu++;
-    MuonCand theMu;
-
-    theMu.pt      = mu1 -> pt();
-    theMu.eta     = mu1 -> eta();
-    theMu.phi     = mu1 -> phi();
-    theMu.charge  = mu1 -> charge();
-
-    mu1 -> isGlobalMuon  () ? theMu.isGlobal  = 1 : theMu.isGlobal   = 0;
-    mu1 -> isTrackerMuon () ? theMu.isTracker = 1 : theMu.isTracker  = 0;
-    mu1 -> isPFMuon()       ? theMu.isPFMuon  = 1 : theMu.isPFMuon   = 0;
-
-    muon::isTightMuon ( (*mu1), pv ) ? theMu.isTight  = 1 : theMu.isTight  = 0;
-    muon::isLooseMuon ( (*mu1)     ) ? theMu.isLoose  = 1 : theMu.isLoose  = 0;
-    muon::isMediumMuon( (*mu1)     ) ? theMu.isMedium = 1 : theMu.isMedium = 0;
-
- 
-
-    //New variables in the Ntuple 
-
-    if (mu1 -> globalTrack().isNonnull()){
-      theMu.chi2 = mu1 -> globalTrack() -> normalizedChi2(); //normalized global-track chi2
-      theMu.validHits      = mu1 -> globalTrack() -> hitPattern().numberOfValidHits(); //number of muon-chamber  hit included in the global muon track
-    } 
-
-
-    if (mu1 -> innerTrack().isNonnull()){
-      theMu.innerpt           = mu1 -> innerTrack() -> pt();
-      theMu.innereta          = mu1 -> innerTrack() -> eta();
-      theMu.innerphi          = mu1 -> innerTrack() -> phi();
-      theMu.innervalidHits    = mu1 -> innerTrack() -> numberOfValidHits();
-      theMu.innerchi2         = mu1 -> innerTrack() -> normalizedChi2();
-      theMu.innerdxy          = mu1 -> innerTrack() -> dxy();
-      theMu.innerdz           = mu1 -> innerTrack() -> dz();
-      theMu.innerpixelHits    = mu1 -> innerTrack() -> hitPattern().numberOfValidPixelHits()      ; //number of pixel hits
-      theMu.innerlayerHits    = mu1 -> innerTrack() -> hitPattern().trackerLayersWithMeasurement(); //hits per layer
-      theMu.innerpixelLayers  = mu1 -> innerTrack() -> hitPattern().pixelLayersWithMeasurement()  ; //number of pixel layers
-      theMu.innerfracValidTrackhit = mu1 -> innerTrack() -> validFraction();  //fraction of valid tracker hits 
-    }
-
-    theMu.dxy               = mu1 -> muonBestTrack() -> dxy();//transverse distance of the tracker track wrt primary vertex
-    theMu.dz                = mu1 -> muonBestTrack() -> dz() ; //longitudinal distance of the tracker track wrt primary vertex
-    theMu.chi2LocalPosition = mu1 -> combinedQuality().chi2LocalPosition; //tracker standalone position match
-    theMu.kickFinder        = mu1 -> combinedQuality().trkKink; //kick finder
-    theMu.matchedStations   = mu1 -> numberOfMatchedStations(); //number of muons stations with segment
-
-
-    theMu.chargedDep_dR03 = mu1->pfIsolationR03().sumChargedHadronPt ;
-    theMu.neutralDep_dR03 = mu1->pfIsolationR03().sumNeutralHadronEt ;
-    theMu.photonDep_dR03  = mu1->pfIsolationR03().sumPhotonEt        ;
-    theMu.puPt_dR03       = mu1->pfIsolationR03().sumPUPt            ;
-    theMu.chargedDep_dR04 = mu1->pfIsolationR04().sumChargedHadronPt ;
-    theMu.neutralDep_dR04 = mu1->pfIsolationR04().sumNeutralHadronEt ;
-    theMu.photonDep_dR04  = mu1->pfIsolationR04().sumPhotonEt        ;
-    theMu.puPt_dR04       = mu1->pfIsolationR04().sumPUPt            ;
-
-    //float offlineiso04 = theMu.chargedDep_dR04 + std::max(0., theMu.photonDep_dR04 + theMu.neutralDep_dR04 - 0.5*theMu.puPt_dR04);
-    //float Relofflineiso04       = float(offlineiso04) / float(theMu.pt);
-    //if(theMu.isTight !=1 || Relofflineiso04 >0.15)continue;
-
-    //std::cout<<"For offline muon with pt, eta, phi: "<<mu1 -> pt()<<", "<<mu1 -> eta()<<", "<<mu1 -> phi()<<std::endl; 
-
-
-
-
-    float L3pt=-1.0;
-    float L3eta=-1.0;
-    float L3phi=-1.0;
-    float delRmuL3=-1.0;
-    float sharedFrac=-1.0;
-    float sharedFracPixel=-1.0;
-    float sharedFracStrip=-1.0;
-   
-    theMu.sharedFrac=0.5;//matchedL3hitFrac(mu1,l3cands,links,L3pt,L3eta,L3phi);
-    theMu.L3pt=L3pt;
-    theMu.L3eta=L3eta;
-    theMu.L3phi=L3phi;
-    float deta = mu1 -> eta() - L3eta;
-    float dphi = std::abs(mu1 -> phi()-L3phi); if (dphi>3.14) dphi-=(2*3.14); 
-    float DeltaRv=sqrt((deta*deta)+(dphi*dphi));
-    delRmuL3=DeltaRv;
-    theMu.delRmuL3=delRmuL3;
-
-    float dummypt=0.;
-    float dummyeta=0.;
-    float dummyphi=0.;  
-
- 
-    theMu.sharedFracPixel=0.5;//matchedL3hitFracPixel(mu1,l3cands,links,dummypt,dummyeta,dummyphi);
-    theMu.sharedFracStrip=0.5;//matchedL3hitFracStrip(mu1,l3cands,links,dummypt,dummyeta,dummyphi);
-  
-
-
-
-
-
-    event_.muons.push_back(theMu);
-  }
-}
-
 
 
 // ---------------------------------------------------------------------
@@ -1127,7 +887,6 @@ void MuonNtuples::beginEvent()
   event_.genParticles.clear();
 
 //*******************INCLUDED*******************//
-//  event_.seeds.clear();
   event_.hltTrackOI.clear();
   event_.hltTrackIOL1.clear();
   event_.hltTrackIOL2.clear();
