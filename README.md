@@ -33,7 +33,8 @@ git clone https://github.com/khaosmos93/MuonHLTForRun3.git HLTrigger/Configurati
 
 cp -r HLTrigger/Configuration/python/MuonHLTForRun3/Analyzers HLTrigger/
 cp -r HLTrigger/Configuration/python/MuonHLTForRun3/TSG/* RecoMuon/TrackerSeedGenerator/plugins/
-
+mkdir RecoMuon/TrackerSeedGenerator/data/
+cp -r HLTrigger/Configuration/python/MuonHLTForRun3/TSG_data/* RecoMuon/TrackerSeedGenerator/data/
 scram b -j 8
 ```
 

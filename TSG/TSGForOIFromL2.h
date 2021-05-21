@@ -30,7 +30,7 @@
 #include "TrackingTools/TrajectoryState/interface/TrajectoryStateOnSurface.h"
 #include "TrackingTools/GeomPropagators/interface/StateOnTrackerBound.h"
 #include "DataFormats/TrackerCommon/interface/TrackerTopology.h"
-//#include "PhysicsTools/TensorFlow/interface/TensorFlow.h"
+#include "PhysicsTools/TensorFlow/interface/TensorFlow.h"
 #include "TrackingTools/DetLayers/interface/NavigationSchool.h"
 #include "RecoTracker/Record/interface/NavigationSchoolRecord.h"
 
@@ -156,14 +156,13 @@ private:
   double match_Chi2(const TrajectoryStateOnSurface& tsos1, const TrajectoryStateOnSurface& tsos2) const;
     
   /// Evaluate DNN
-  /*
-  int evaluateDnn(
+  std::tuple<int, int, int> evaluateDnn(
       reco::TrackRef l2,
       const TrajectoryStateOnSurface& tsos_IP,
       const TrajectoryStateOnSurface& tsos_MuS,
       tensorflow::Session* session
   ) const;
-*/
+
 };
 
 #endif

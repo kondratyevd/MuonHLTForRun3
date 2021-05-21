@@ -160,7 +160,39 @@ void TSGForOIFromL2::produce(edm::StreamID sid, edm::Event& iEvent, const edm::E
     double L2muonEta = l2->eta();
     double absL2muonEta = std::abs(L2muonEta);
     bool useBoth = false;
-    if (useBothAsInRun2_ && outerTkStateInside.isValid() && outerTkStateOutside.isValid()) {
+    
+    // make non-const copies of parameters
+    // (we want to override them if DNN evaluation is enabled)
+    unsigned int maxHitSeeds__ = maxHitSeeds_;
+    unsigned int maxHitDoubletSeeds__ = maxHitDoubletSeeds_;
+    unsigned int maxHitlessSeedsIP__ = maxHitlessSeedsIP_;
+    unsigned int maxHitlessSeedsMuS__ = maxHitlessSeedsMuS_; 
+    bool dontCreateHitbasedInBarrelAsInRun2__ = dontCreateHitbasedInBarrelAsInRun2_;
+    bool useBothAsInRun2__ = useBothAsInRun2_;
+    
+    // update strategy parameters by evaluating DNN
+    if (getStrategyFromDNN_){
+
+        edm::FileInPath dnnPath(dnnModelPath_);
+        tensorflow::setLogging("2");
+        tensorflow::GraphDef* graphDef = tensorflow::loadGraphDef(dnnPath.fullPath());
+        tensorflow::Session* tf_session = tensorflow::createSession(graphDef);
+        auto [nHBd, nHLIP, nHLMuS] = evaluateDnn(l2, tsosAtIP, outerTkStateOutside, tf_session);
+        tensorflow::closeSession(tf_session);
+        delete graphDef;
+
+        //std::cout << "DNN decision: " << nHBd << nHLIP << nHLMuS << std::endl;
+        maxHitSeeds__ = 0;
+        maxHitDoubletSeeds__ = nHBd;
+        maxHitlessSeedsIP__ = nHLIP;
+        maxHitlessSeedsMuS__ = nHLMuS;
+        
+        dontCreateHitbasedInBarrelAsInRun2__ = false;
+        useBothAsInRun2__ = false;
+
+    }
+
+    if (useBothAsInRun2__ && outerTkStateInside.isValid() && outerTkStateOutside.isValid()) {
       if (l2->numberOfValidHits() < numL2ValidHitsCutAllEta_)
         useBoth = true;
       if (l2->numberOfValidHits() < numL2ValidHitsCutAllEndcap_ && absL2muonEta > eta7_)
@@ -168,15 +200,6 @@ void TSGForOIFromL2::produce(edm::StreamID sid, edm::Event& iEvent, const edm::E
       if (absL2muonEta > eta1_ && absL2muonEta < eta1_)
         useBoth = true;
     }
-    
-    //if (getStrategyFromDNN_){
-    //    tensorflow::setLogging("2");
-    //    tensorflow::GraphDef* graphDef = tensorflow::loadGraphDef(dnnModelPath_);
-    //    tensorflow::Session* tf_session = tensorflow::createSession(graphDef);
-    //    int dnn_decision = evaluateDnn(l2, tsosAtIP, outerTkStateOutside, tf_session);
-    //    std::cout << "DNN decision: " << dnn_decision << std::endl;
-    //    // TODO: select strategy based on the returned number
-    //}
     
     numSeedsMade = 0;
     hitlessSeedsMadeIP = 0;
@@ -194,7 +217,7 @@ void TSGForOIFromL2::produce(edm::StreamID sid, edm::Event& iEvent, const edm::E
       layerCount = 0;
       for (auto it = tob.rbegin(); it != tob.rend(); ++it) {
         LogTrace("TSGForOIFromL2") << "TSGForOIFromL2::produce: looping in TOB layer " << layerCount << std::endl;
-        if (useHitLessSeeds_ && hitlessSeedsMadeIP < maxHitlessSeedsIP_ && numSeedsMade < maxSeeds_)
+        if (useHitLessSeeds_ && hitlessSeedsMadeIP < maxHitlessSeedsIP__ && numSeedsMade < maxSeeds_)
           makeSeedsWithoutHits(**it,
                                tsosAtIP,
                                *(propagatorAlong.get()),
@@ -204,7 +227,7 @@ void TSGForOIFromL2::produce(edm::StreamID sid, edm::Event& iEvent, const edm::E
                                numSeedsMade,
                                out);
         if (outerTkStateInside.isValid() && outerTkStateOutside.isValid() &&
-            useHitLessSeeds_ && hitlessSeedsMadeMuS < maxHitlessSeedsMuS_ && numSeedsMade < maxSeeds_)
+            useHitLessSeeds_ && hitlessSeedsMadeMuS < maxHitlessSeedsMuS__ && numSeedsMade < maxSeeds_)
             makeSeedsWithoutHits(**it,
                                  outerTkStateOutside,
                                  *(propagatorOpposite.get()),
@@ -214,9 +237,9 @@ void TSGForOIFromL2::produce(edm::StreamID sid, edm::Event& iEvent, const edm::E
                                  numSeedsMade,
                                  out);
         // Do not create hitbased seeds in barrel region
-        if (hitSeedsMade < maxHitSeeds_ && numSeedsMade < maxSeeds_){
+        if (hitSeedsMade < maxHitSeeds__ && numSeedsMade < maxSeeds_){
             // Run2 approach, preserved for backward compatibility
-            if (!(dontCreateHitbasedInBarrelAsInRun2_ && (absL2muonEta <= 1.0)))
+            if (!(dontCreateHitbasedInBarrelAsInRun2__ && (absL2muonEta <= 1.0)))
               makeSeedsFromHits(**it,
                             tsosAtIP,
                             *(propagatorAlong.get()),
@@ -229,7 +252,7 @@ void TSGForOIFromL2::produce(edm::StreamID sid, edm::Event& iEvent, const edm::E
                             out);
         }
 
-        if (hitDoubletSeedsMade < maxHitDoubletSeeds_ && numSeedsMade < maxSeeds_){
+        if (hitDoubletSeedsMade < maxHitDoubletSeeds__ && numSeedsMade < maxSeeds_){
             makeSeedsFromHitDoublets(**it,
                             tsosAtIP,
                             *(propagatorAlong.get()),
@@ -244,7 +267,7 @@ void TSGForOIFromL2::produce(edm::StreamID sid, edm::Event& iEvent, const edm::E
         }
         // Run2 approach, preserved for backward compatibility
         if (useBoth) {
-          if (useHitLessSeeds_ && hitlessSeedsMadeMuS < maxHitlessSeedsIP_ && numSeedsMade < maxSeeds_)
+          if (useHitLessSeeds_ && hitlessSeedsMadeMuS < maxHitlessSeedsIP__ && numSeedsMade < maxSeeds_)
             makeSeedsWithoutHits(**it,
                                  outerTkStateOutside,
                                  *(propagatorOpposite.get()),
@@ -273,7 +296,7 @@ void TSGForOIFromL2::produce(edm::StreamID sid, edm::Event& iEvent, const edm::E
       layerCount = 0;
       for (auto it = tecPositive.rbegin(); it != tecPositive.rend(); ++it) {
         LogTrace("TSGForOIFromL2") << "TSGForOIFromL2::produce: looping in TEC+ layer " << layerCount << std::endl;
-        if (useHitLessSeeds_ && hitlessSeedsMadeIP < maxHitlessSeedsIP_ && numSeedsMade < maxSeeds_)
+        if (useHitLessSeeds_ && hitlessSeedsMadeIP < maxHitlessSeedsIP__ && numSeedsMade < maxSeeds_)
           makeSeedsWithoutHits(**it,
                                tsosAtIP,
                                *(propagatorAlong.get()),
@@ -283,7 +306,7 @@ void TSGForOIFromL2::produce(edm::StreamID sid, edm::Event& iEvent, const edm::E
                                numSeedsMade,
                                out);
         if (outerTkStateInside.isValid() && outerTkStateOutside.isValid() &&
-            useHitLessSeeds_ && hitlessSeedsMadeMuS < maxHitlessSeedsMuS_ && numSeedsMade < maxSeeds_)
+            useHitLessSeeds_ && hitlessSeedsMadeMuS < maxHitlessSeedsMuS__ && numSeedsMade < maxSeeds_)
             makeSeedsWithoutHits(**it,
                                  outerTkStateOutside,
                                  *(propagatorOpposite.get()),
@@ -292,9 +315,9 @@ void TSGForOIFromL2::produce(edm::StreamID sid, edm::Event& iEvent, const edm::E
                                  hitlessSeedsMadeMuS,
                                  numSeedsMade,
                                  out);
-        if (hitSeedsMade < maxHitSeeds_ && numSeedsMade < maxSeeds_){
+        if (hitSeedsMade < maxHitSeeds__ && numSeedsMade < maxSeeds_){
             // Run2 approach, preserved for backward compatibility
-            if (!(dontCreateHitbasedInBarrelAsInRun2_ && (absL2muonEta <= 1.0)))
+            if (!(dontCreateHitbasedInBarrelAsInRun2__ && (absL2muonEta <= 1.0)))
               makeSeedsFromHits(**it,
                             tsosAtIP,
                             *(propagatorAlong.get()),
@@ -306,7 +329,7 @@ void TSGForOIFromL2::produce(edm::StreamID sid, edm::Event& iEvent, const edm::E
                             layerCount,
                             out);
         }
-        if (hitDoubletSeedsMade < maxHitDoubletSeeds_ && numSeedsMade < maxSeeds_){
+        if (hitDoubletSeedsMade < maxHitDoubletSeeds__ && numSeedsMade < maxSeeds_){
             makeSeedsFromHitDoublets(**it,
                             tsosAtIP,
                             *(propagatorAlong.get()),
@@ -321,7 +344,7 @@ void TSGForOIFromL2::produce(edm::StreamID sid, edm::Event& iEvent, const edm::E
         }
          // Run2 approach, preserved for backward compatibility
         if (useBoth) {
-          if (useHitLessSeeds_ && hitlessSeedsMadeMuS < maxHitlessSeedsIP_ && numSeedsMade < maxSeeds_)
+          if (useHitLessSeeds_ && hitlessSeedsMadeMuS < maxHitlessSeedsIP__ && numSeedsMade < maxSeeds_)
             makeSeedsWithoutHits(**it,
                                  outerTkStateOutside,
                                  *(propagatorOpposite.get()),
@@ -341,7 +364,7 @@ void TSGForOIFromL2::produce(edm::StreamID sid, edm::Event& iEvent, const edm::E
       layerCount = 0;
       for (auto it = tecNegative.rbegin(); it != tecNegative.rend(); ++it) {
         LogTrace("TSGForOIFromL2") << "TSGForOIFromL2::produce: looping in TEC- layer " << layerCount << std::endl;
-        if (useHitLessSeeds_ && hitlessSeedsMadeIP < maxHitlessSeedsIP_ && numSeedsMade < maxSeeds_)
+        if (useHitLessSeeds_ && hitlessSeedsMadeIP < maxHitlessSeedsIP__ && numSeedsMade < maxSeeds_)
           makeSeedsWithoutHits(**it,
                                tsosAtIP,
                                *(propagatorAlong.get()),
@@ -351,7 +374,7 @@ void TSGForOIFromL2::produce(edm::StreamID sid, edm::Event& iEvent, const edm::E
                                numSeedsMade,
                                out);
         if (outerTkStateInside.isValid() && outerTkStateOutside.isValid() &&
-            useHitLessSeeds_ && hitlessSeedsMadeMuS < maxHitlessSeedsMuS_ && numSeedsMade < maxSeeds_)
+            useHitLessSeeds_ && hitlessSeedsMadeMuS < maxHitlessSeedsMuS__ && numSeedsMade < maxSeeds_)
             makeSeedsWithoutHits(**it,
                                  outerTkStateOutside,
                                  *(propagatorOpposite.get()),
@@ -361,9 +384,9 @@ void TSGForOIFromL2::produce(edm::StreamID sid, edm::Event& iEvent, const edm::E
                                  numSeedsMade,
                                  out);
 
-        if (hitSeedsMade < maxHitSeeds_ && numSeedsMade < maxSeeds_){
+        if (hitSeedsMade < maxHitSeeds__ && numSeedsMade < maxSeeds_){
             // Run2 approach, preserved for backward compatibility
-            if (!(dontCreateHitbasedInBarrelAsInRun2_ && (absL2muonEta <= 1.0)))
+            if (!(dontCreateHitbasedInBarrelAsInRun2__ && (absL2muonEta <= 1.0)))
               makeSeedsFromHits(**it,
                             tsosAtIP,
                             *(propagatorAlong.get()),
@@ -375,7 +398,7 @@ void TSGForOIFromL2::produce(edm::StreamID sid, edm::Event& iEvent, const edm::E
                             layerCount,
                             out);
         }
-        if (hitDoubletSeedsMade < maxHitDoubletSeeds_ && numSeedsMade < maxSeeds_){
+        if (hitDoubletSeedsMade < maxHitDoubletSeeds__ && numSeedsMade < maxSeeds_){
             makeSeedsFromHitDoublets(**it,
                             tsosAtIP,
                             *(propagatorAlong.get()),
@@ -390,7 +413,7 @@ void TSGForOIFromL2::produce(edm::StreamID sid, edm::Event& iEvent, const edm::E
         }
         // Run2 approach, preserved for backward compatibility
         if (useBoth) {
-          if (useHitLessSeeds_ && hitlessSeedsMadeMuS < maxHitlessSeedsIP_ && numSeedsMade < maxSeeds_)
+          if (useHitLessSeeds_ && hitlessSeedsMadeMuS < maxHitlessSeedsIP__ && numSeedsMade < maxSeeds_)
             makeSeedsWithoutHits(**it,
                                  outerTkStateOutside,
                                  *(propagatorOpposite.get()),
@@ -770,15 +793,15 @@ double TSGForOIFromL2::match_Chi2(const TrajectoryStateOnSurface& tsos1, const T
   return est;
 }
 
-/*
-int TSGForOIFromL2::evaluateDnn(
+
+std::tuple<int, int, int> TSGForOIFromL2::evaluateDnn(
     reco::TrackRef l2,
     const TrajectoryStateOnSurface& tsos_IP,
     const TrajectoryStateOnSurface& tsos_MuS,
     tensorflow::Session* session
 ) const {    
     int n_features = 26;
-    int n_outputs = 6;
+    int n_outputs = 21;
     double features[26];
     
     features[0] = l2->pt();// pt
@@ -845,7 +868,7 @@ int TSGForOIFromL2::evaluateDnn(
     }
     
     std::vector<tensorflow::Tensor> outputs;
-    tensorflow::run(session, { { "dnn_0_input", input } }, { "model/dnn_0_output/Sigmoid" }, &outputs);
+    tensorflow::run(session, { { "dnn_5_seeds_0_input", input } }, { "model/dnn_5_seeds_0_output/Sigmoid" }, &outputs);
 
     int imax = -1;
     float max = 0;
@@ -857,9 +880,56 @@ int TSGForOIFromL2::evaluateDnn(
             imax = i;
         }
     }
-    return imax;
+    
+    switch(imax) {
+        case 0:
+            return {0, 0, 5};
+        case 1:
+            return {0, 1, 4};
+        case 2:
+            return {0, 2, 3};
+        case 3:
+            return {0, 3, 2};
+        case 4:
+            return {0, 4, 1};
+        case 5:
+            return {0, 5, 0};
+        case 6:
+            return {1, 0, 4};
+        case 7:
+            return {1, 1, 3};
+        case 8:
+            return {1, 2, 2};
+        case 9:
+            return {1, 3, 1};
+        case 10:
+            return {1, 4, 0};
+        case 11:
+            return {2, 0, 3};
+        case 12:
+            return {2, 1, 2};
+        case 13:
+            return {2, 2, 1};
+        case 14:
+            return {2, 3, 0};
+        case 15:
+            return {3, 0, 2};
+        case 16:
+            return {3, 1, 1};
+        case 17:
+            return {3, 2, 0};
+        case 18:
+            return {4, 0, 1};
+        case 19:
+            return {4, 1, 0};
+        case 20:
+            return {5, 0, 0};
+        default :
+            return {1, 4, 0};
+    }
+
 }
-*/
+
 
 //
 //
