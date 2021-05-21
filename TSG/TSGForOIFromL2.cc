@@ -59,10 +59,22 @@ TSGForOIFromL2::TSGForOIFromL2(const edm::ParameterSet& iConfig)
       getStrategyFromDNN_(iConfig.getParameter<bool>("getStrategyFromDNN")),
       dnnModelPath_(iConfig.getParameter<std::string>("dnnModelPath"))
 {
+  if (getStrategyFromDNN_){
+      // to be implemented properly
+      tensorflow::setLogging("2");
+      edm::FileInPath dnnPath(dnnModelPath_);
+      graphDef = tensorflow::loadGraphDef(dnnPath.fullPath());
+      tf_session = tensorflow::createSession(graphDef);
+  }
   produces<std::vector<TrajectorySeed> >();
 }
 
-TSGForOIFromL2::~TSGForOIFromL2() {}
+TSGForOIFromL2::~TSGForOIFromL2() {
+    if (getStrategyFromDNN_){
+        tensorflow::closeSession(tf_session);
+        delete graphDef;
+    }
+}
 
 //
 // Produce seeds
@@ -172,15 +184,7 @@ void TSGForOIFromL2::produce(edm::StreamID sid, edm::Event& iEvent, const edm::E
     
     // update strategy parameters by evaluating DNN
     if (getStrategyFromDNN_){
-
-        edm::FileInPath dnnPath(dnnModelPath_);
-        tensorflow::setLogging("2");
-        tensorflow::GraphDef* graphDef = tensorflow::loadGraphDef(dnnPath.fullPath());
-        tensorflow::Session* tf_session = tensorflow::createSession(graphDef);
         auto [nHBd, nHLIP, nHLMuS] = evaluateDnn(l2, tsosAtIP, outerTkStateOutside, tf_session);
-        tensorflow::closeSession(tf_session);
-        delete graphDef;
-
         //std::cout << "DNN decision: " << nHBd << nHLIP << nHLMuS << std::endl;
         maxHitSeeds__ = 0;
         maxHitDoubletSeeds__ = nHBd;
@@ -189,7 +193,6 @@ void TSGForOIFromL2::produce(edm::StreamID sid, edm::Event& iEvent, const edm::E
         
         dontCreateHitbasedInBarrelAsInRun2__ = false;
         useBothAsInRun2__ = false;
-
     }
 
     if (useBothAsInRun2__ && outerTkStateInside.isValid() && outerTkStateOutside.isValid()) {
@@ -799,9 +802,19 @@ std::tuple<int, int, int> TSGForOIFromL2::evaluateDnn(
     const TrajectoryStateOnSurface& tsos_IP,
     const TrajectoryStateOnSurface& tsos_MuS,
     tensorflow::Session* session
-) const {    
-    int n_features = 26;
+) const {
+    // For now the strategies are hard-coded.
+    // Later, they will be supplied from external files.
+
+    int NSEEDS = 5;
+    //int NSEEDS = 7;
     int n_outputs = 21;
+    
+    if (NSEEDS==7){
+        n_outputs = 15; // we didn't use all combinations for 7-seed training
+    };
+    
+    int n_features = 26;
     double features[26];
     
     features[0] = l2->pt();// pt
@@ -868,8 +881,11 @@ std::tuple<int, int, int> TSGForOIFromL2::evaluateDnn(
     }
     
     std::vector<tensorflow::Tensor> outputs;
-    tensorflow::run(session, { { "dnn_5_seeds_0_input", input } }, { "model/dnn_5_seeds_0_output/Sigmoid" }, &outputs);
-
+    if (NSEEDS==5){
+        tensorflow::run(session, { { "dnn_5_seeds_0_input", input } }, { "model/dnn_5_seeds_0_output/Sigmoid" }, &outputs);
+    } else if (NSEEDS==7) {
+        tensorflow::run(session, { { "dnn_7_seeds_0_input", input } }, { "model_24/dnn_7_seeds_0_output/Sigmoid" }, &outputs);
+    }
     int imax = -1;
     float max = 0;
     for (int i = 0; i < n_outputs; i++) {
@@ -881,53 +897,91 @@ std::tuple<int, int, int> TSGForOIFromL2::evaluateDnn(
         }
     }
     
-    switch(imax) {
-        case 0:
-            return {0, 0, 5};
-        case 1:
-            return {0, 1, 4};
-        case 2:
-            return {0, 2, 3};
-        case 3:
-            return {0, 3, 2};
-        case 4:
-            return {0, 4, 1};
-        case 5:
-            return {0, 5, 0};
-        case 6:
-            return {1, 0, 4};
-        case 7:
-            return {1, 1, 3};
-        case 8:
-            return {1, 2, 2};
-        case 9:
-            return {1, 3, 1};
-        case 10:
-            return {1, 4, 0};
-        case 11:
-            return {2, 0, 3};
-        case 12:
-            return {2, 1, 2};
-        case 13:
-            return {2, 2, 1};
-        case 14:
-            return {2, 3, 0};
-        case 15:
-            return {3, 0, 2};
-        case 16:
-            return {3, 1, 1};
-        case 17:
-            return {3, 2, 0};
-        case 18:
-            return {4, 0, 1};
-        case 19:
-            return {4, 1, 0};
-        case 20:
-            return {5, 0, 0};
-        default :
-            return {1, 4, 0};
+    if (NSEEDS==5){
+        switch(imax) {
+            case 0:
+                return {0, 0, 5};
+            case 1:
+                return {0, 1, 4};
+            case 2:
+                return {0, 2, 3};
+            case 3:
+                return {0, 3, 2};
+            case 4:
+                return {0, 4, 1};
+            case 5:
+                return {0, 5, 0};
+            case 6:
+                return {1, 0, 4};
+            case 7:
+                return {1, 1, 3};
+            case 8:
+                return {1, 2, 2};
+            case 9:
+                return {1, 3, 1};
+            case 10:
+                return {1, 4, 0};
+            case 11:
+                return {2, 0, 3};
+            case 12:
+                return {2, 1, 2};
+            case 13:
+                return {2, 2, 1};
+            case 14:
+                return {2, 3, 0};
+            case 15:
+                return {3, 0, 2};
+            case 16:
+                return {3, 1, 1};
+            case 17:
+                return {3, 2, 0};
+            case 18:
+                return {4, 0, 1};
+            case 19:
+                return {4, 1, 0};
+            case 20:
+                return {5, 0, 0};
+            default :
+                return {1, 4, 0}; // most frequently chosen
+        }
+    } else if (NSEEDS==7){
+        switch(imax) {
+            case 0:
+                return {0, 3, 4};
+            case 1:
+                return {0, 4, 3};
+            case 2:
+                return {0, 5, 2};
+            case 3:
+                return {0, 6, 1};
+            case 4:
+                return {0, 7, 0};
+            case 5:
+                return {1, 3, 3};
+            case 6:
+                return {1, 4, 2};
+            case 7:
+                return {1, 5, 1};
+            case 8:
+                return {1, 6, 0};
+            case 9:
+                return {2, 3, 2};
+            case 10:
+                return {2, 4, 1};
+            case 11:
+                return {2, 5, 0};
+            case 12:
+                return {3, 3, 1};
+            case 13:
+                return {3, 4, 0};
+            case 14:
+                return {4, 3, 0};
+            default :
+                return {0, 6, 1}; // most frequently chosen
+        }
     }
 
+    return {1, 5, 0}; // something similar to Run2
 }
 
 

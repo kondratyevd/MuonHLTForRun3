@@ -115,6 +115,10 @@ private:
   /// Get number of seeds to use from DNN output instead of "max..Seeds" parameters
   const bool getStrategyFromDNN_;
   const std::string dnnModelPath_;
+  
+  // to be implemented properly
+  tensorflow::GraphDef* graphDef;
+  tensorflow::Session* tf_session;
 
   /// Create seeds without hits on a given layer (TOB or TEC)
   void makeSeedsWithoutHits(const GeometricSearchDet& layer,
