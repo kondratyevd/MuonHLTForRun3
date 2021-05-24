@@ -38,8 +38,8 @@ def customizeOIseeding(process, newProcessName = "MYHLT"):
         maxHitSeeds = cms.uint32(1), # default 1
         maxHitlessSeedsIP = cms.uint32(5), # default 5
         maxHitlessSeedsMuS = cms.uint32(0), # default 0
-        useBothAsInRun2 = cms.bool(False), # default True - Run2 behavior
-        dontCreateHitbasedInBarrelAsInRun2 = cms.bool(False), # default True - Run2 behavior
+        useBothAsInRun2 = cms.bool(True), # default True - Run2 behavior
+        dontCreateHitbasedInBarrelAsInRun2 = cms.bool(True), # default True - Run2 behavior
         maxSeeds = cms.uint32(20),
         minEtaForTEC = cms.double(0.7),
         numL2ValidHitsCutAllEndcap = cms.uint32(30),
@@ -51,12 +51,10 @@ def customizeOIseeding(process, newProcessName = "MYHLT"):
         src = cms.InputTag("hltL2Muons","UpdatedAtVtx"),
         tsosDiff1 = cms.double(0.2),
         tsosDiff2 = cms.double(0.02),
-        getStrategyFromDNN = cms.bool(True), # will override max nSeeds of all types and Run2-behavior flags
+        getStrategyFromDNN = cms.bool(False), # will override max nSeeds of all types and Run2-behavior flags
         #dnnModelPath = cms.string('RecoMuon/TrackerSeedGenerator/data/dnn_5_seeds_0.pb'),
         dnnModelPath_barrel = cms.string('RecoMuon/TrackerSeedGenerator/data/dnn_5_seeds_0.pb'),
         dnnModelPath_endcap = cms.string('RecoMuon/TrackerSeedGenerator/data/dnn_7_seeds_0.pb'),
-
-
     )
 
     return process
