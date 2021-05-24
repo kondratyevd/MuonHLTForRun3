@@ -57,22 +57,34 @@ TSGForOIFromL2::TSGForOIFromL2(const edm::ParameterSet& iConfig)
       maxHitlessSeedsMuS_(iConfig.getParameter<uint32_t>("maxHitlessSeedsMuS")),
       maxHitDoubletSeeds_(iConfig.getParameter<uint32_t>("maxHitDoubletSeeds")),
       getStrategyFromDNN_(iConfig.getParameter<bool>("getStrategyFromDNN")),
-      dnnModelPath_(iConfig.getParameter<std::string>("dnnModelPath"))
+      //dnnModelPath_(iConfig.getParameter<std::string>("dnnModelPath")),
+      dnnModelPath_barrel_(iConfig.getParameter<std::string>("dnnModelPath_barrel")),
+      dnnModelPath_endcap_(iConfig.getParameter<std::string>("dnnModelPath_endcap"))
 {
   if (getStrategyFromDNN_){
       // to be implemented properly
       tensorflow::setLogging("2");
-      edm::FileInPath dnnPath(dnnModelPath_);
-      graphDef = tensorflow::loadGraphDef(dnnPath.fullPath());
-      tf_session = tensorflow::createSession(graphDef);
+      //edm::FileInPath dnnPath(dnnModelPath_);
+      //graphDef = tensorflow::loadGraphDef(dnnPath.fullPath());
+      //tf_session = tensorflow::createSession(graphDef);
+      edm::FileInPath dnnPath_barrel(dnnModelPath_barrel_);
+      edm::FileInPath dnnPath_endcap(dnnModelPath_endcap_);
+      graphDef_barrel = tensorflow::loadGraphDef(dnnPath_barrel.fullPath());
+      graphDef_endcap = tensorflow::loadGraphDef(dnnPath_endcap.fullPath());
+      tf_session_barrel = tensorflow::createSession(graphDef_barrel);
+      tf_session_endcap = tensorflow::createSession(graphDef_endcap);
   }
   produces<std::vector<TrajectorySeed> >();
 }
 
 TSGForOIFromL2::~TSGForOIFromL2() {
     if (getStrategyFromDNN_){
-        tensorflow::closeSession(tf_session);
-        delete graphDef;
+        //tensorflow::closeSession(tf_session);
+        //delete graphDef;
+        tensorflow::closeSession(tf_session_barrel);
+        tensorflow::closeSession(tf_session_endcap);
+        delete graphDef_barrel;
+        delete graphDef_endcap;
     }
 }
 
@@ -184,7 +196,18 @@ void TSGForOIFromL2::produce(edm::StreamID sid, edm::Event& iEvent, const edm::E
     
     // update strategy parameters by evaluating DNN
     if (getStrategyFromDNN_){
-        auto [nHBd, nHLIP, nHLMuS] = evaluateDnn(l2, tsosAtIP, outerTkStateOutside, tf_session);
+        std::tuple<int, int, int> strategy;
+
+        //auto [nHBd, nHLIP, nHLMuS] = evaluateDnn(l2, tsosAtIP, outerTkStateOutside, tf_session);
+        if (std::abs(l2->eta())<1.0){
+            strategy = evaluateDnn(l2, tsosAtIP, outerTkStateOutside, tf_session_barrel, 5);
+        } else {
+            strategy = evaluateDnn(l2, tsosAtIP, outerTkStateOutside, tf_session_endcap, 7);
+        }
+        int nHBd = std::get<0>(strategy);
+        int nHLIP = std::get<1>(strategy);
+        int nHLMuS = std::get<2>(strategy);
+
         //std::cout << "DNN decision: " << nHBd << nHLIP << nHLMuS << std::endl;
         maxHitSeeds__ = 0;
         maxHitDoubletSeeds__ = nHBd;
@@ -801,13 +824,15 @@ std::tuple<int, int, int> TSGForOIFromL2::evaluateDnn(
     reco::TrackRef l2,
     const TrajectoryStateOnSurface& tsos_IP,
     const TrajectoryStateOnSurface& tsos_MuS,
-    tensorflow::Session* session
+    tensorflow::Session* session,
+    int nseeds
 ) const {
     // For now the strategies are hard-coded.
     // Later, they will be supplied from external files.
 
-    int NSEEDS = 5;
+    //int NSEEDS = 5;
     //int NSEEDS = 7;
+    int NSEEDS = nseeds;
     int n_outputs = 21;
     
     if (NSEEDS==7){
@@ -1033,7 +1058,9 @@ void TSGForOIFromL2::fillDescriptions(edm::ConfigurationDescriptions& descriptio
   desc.add<unsigned int>("maxHitlessSeedsMuS", 0);
   desc.add<unsigned int>("maxHitDoubletSeeds", 0);
   desc.add<bool>("getStrategyFromDNN", false);
-  desc.add<std::string>("dnnModelPath", "");
+  //desc.add<std::string>("dnnModelPath", "");
+  desc.add<std::string>("dnnModelPath_barrel", "");
+  desc.add<std::string>("dnnModelPath_endcap", "");
   descriptions.add("TSGForOIFromL2", desc);
 }
 

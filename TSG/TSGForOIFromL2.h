@@ -114,11 +114,17 @@ private:
   const unsigned int maxHitDoubletSeeds_;
   /// Get number of seeds to use from DNN output instead of "max..Seeds" parameters
   const bool getStrategyFromDNN_;
-  const std::string dnnModelPath_;
+  //const std::string dnnModelPath_;
+  const std::string dnnModelPath_barrel_;
+  const std::string dnnModelPath_endcap_;
   
   // to be implemented properly
-  tensorflow::GraphDef* graphDef;
-  tensorflow::Session* tf_session;
+  //tensorflow::GraphDef* graphDef;
+  //tensorflow::Session* tf_session;
+  tensorflow::GraphDef* graphDef_barrel;
+  tensorflow::GraphDef* graphDef_endcap;
+  tensorflow::Session* tf_session_barrel;
+  tensorflow::Session* tf_session_endcap;
 
   /// Create seeds without hits on a given layer (TOB or TEC)
   void makeSeedsWithoutHits(const GeometricSearchDet& layer,
@@ -164,7 +170,8 @@ private:
       reco::TrackRef l2,
       const TrajectoryStateOnSurface& tsos_IP,
       const TrajectoryStateOnSurface& tsos_MuS,
-      tensorflow::Session* session
+      tensorflow::Session* session,
+      int nseeds
   ) const;
 
 };
