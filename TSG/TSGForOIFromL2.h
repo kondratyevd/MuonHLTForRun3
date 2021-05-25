@@ -36,6 +36,7 @@
 #include <TFile.h>
 #include <TH2D.h>
 
+
 class TSGForOIFromL2 : public edm::global::EDProducer<> {
 public:
   explicit TSGForOIFromL2(const edm::ParameterSet& iConfig);
@@ -173,19 +174,25 @@ private:
 
   /// Find compatability between two TSOSs
   double match_Chi2(const TrajectoryStateOnSurface& tsos1, const TrajectoryStateOnSurface& tsos2) const;
+  
+  /// Dictionary of inputs for DNN
+  std::map<std::string, float> getFeatureMap(
+      reco::TrackRef l2,
+      const TrajectoryStateOnSurface& tsos_IP,     
+      const TrajectoryStateOnSurface& tsos_MuS
+  ) const;
     
   /// Evaluate DNN
   void evaluateDnn(
-      reco::TrackRef l2,
-      const TrajectoryStateOnSurface& tsos_IP,
-      const TrajectoryStateOnSurface& tsos_MuS,
+      std::map<std::string, float> feature_map,
       tensorflow::Session* session,
       const std::string inputLayer,
       const std::string outputLayer,
       TH2D * decoderHist,
       int& nHB,
       int& nHLIP,
-      int& nHLMuS
+      int& nHLMuS,
+      bool& dnnSuccess
   ) const;
 
 };
