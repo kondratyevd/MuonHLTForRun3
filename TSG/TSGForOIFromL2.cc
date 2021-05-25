@@ -57,6 +57,7 @@ TSGForOIFromL2::TSGForOIFromL2(const edm::ParameterSet& iConfig)
       maxHitlessSeedsMuS_(iConfig.getParameter<uint32_t>("maxHitlessSeedsMuS")),
       maxHitDoubletSeeds_(iConfig.getParameter<uint32_t>("maxHitDoubletSeeds")),
       getStrategyFromDNN_(iConfig.getParameter<bool>("getStrategyFromDNN")),
+      etaSplitForDnn_(iConfig.getParameter<double>("etaSplitForDnn_")),
       dnnModelPath_barrel_(iConfig.getParameter<std::string>("dnnModelPath_barrel")),
       dnnInputLayer_barrel_(iConfig.getParameter<std::string>("dnnInputLayer_barrel")),
       dnnOutputLayer_barrel_(iConfig.getParameter<std::string>("dnnOutputLayer_barrel")),
@@ -89,8 +90,6 @@ TSGForOIFromL2::TSGForOIFromL2(const edm::ParameterSet& iConfig)
 
 TSGForOIFromL2::~TSGForOIFromL2() {
     if (getStrategyFromDNN_){
-        //tensorflow::closeSession(tf_session);
-        //delete graphDef;
         tensorflow::closeSession(tf_session_barrel);
         tensorflow::closeSession(tf_session_endcap);
         delete graphDef_barrel;
@@ -210,17 +209,22 @@ void TSGForOIFromL2::produce(edm::StreamID sid, edm::Event& iEvent, const edm::E
     if (getStrategyFromDNN_){
         int nHBd(0), nHLIP(0), nHLMuS(0);
         bool dnnSuccess_ = false;
+
+        // Put variables needed for DNN into an std::map
         std::map<std::string, float> feature_map_ = getFeatureMap(l2, tsosAtIP, outerTkStateOutside);
         //for (auto const &pair: feature_map_) {
         //    std::cout << "{" << pair.first << ": " << pair.second << "}\n";
         //}
-        if (std::abs(l2->eta())<1.0){
+
+        if (std::abs(l2->eta())<etaSplitForDnn_){
+            // barrel
             evaluateDnn(
                 feature_map_, tf_session_barrel,
                 dnnInputLayer_barrel_, dnnOutputLayer_barrel_, decoderHist_barrel_,
                 nHBd, nHLIP, nHLMuS, dnnSuccess_
             );
         } else {
+            // endcap
             evaluateDnn(
                 feature_map_, tf_session_endcap,
                 dnnInputLayer_endcap_, dnnOutputLayer_endcap_, decoderHist_endcap_,
@@ -1029,7 +1033,7 @@ void TSGForOIFromL2::fillDescriptions(edm::ConfigurationDescriptions& descriptio
   desc.add<unsigned int>("maxHitlessSeedsMuS", 0);
   desc.add<unsigned int>("maxHitDoubletSeeds", 0);
   desc.add<bool>("getStrategyFromDNN", false);
-  //desc.add<std::string>("dnnModelPath", "");
+  desc.add<double>("etaSplitForDnn", 1.0);
   desc.add<std::string>("dnnModelPath_barrel", "");
   desc.add<std::string>("dnnInputLayer_barrel", "");
   desc.add<std::string>("dnnOutputLayer_barrel", "");

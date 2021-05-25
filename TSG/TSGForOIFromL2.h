@@ -117,6 +117,7 @@ private:
   const unsigned int maxHitDoubletSeeds_;
   /// Get number of seeds to use from DNN output instead of "max..Seeds" parameters
   const bool getStrategyFromDNN_;
+  const double etaSplitForDnn_;
 
   const std::string dnnModelPath_barrel_;
   const std::string dnnInputLayer_barrel_;
