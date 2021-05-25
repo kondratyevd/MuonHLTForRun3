@@ -57,22 +57,32 @@ TSGForOIFromL2::TSGForOIFromL2(const edm::ParameterSet& iConfig)
       maxHitlessSeedsMuS_(iConfig.getParameter<uint32_t>("maxHitlessSeedsMuS")),
       maxHitDoubletSeeds_(iConfig.getParameter<uint32_t>("maxHitDoubletSeeds")),
       getStrategyFromDNN_(iConfig.getParameter<bool>("getStrategyFromDNN")),
-      //dnnModelPath_(iConfig.getParameter<std::string>("dnnModelPath")),
       dnnModelPath_barrel_(iConfig.getParameter<std::string>("dnnModelPath_barrel")),
-      dnnModelPath_endcap_(iConfig.getParameter<std::string>("dnnModelPath_endcap"))
+      dnnInputLayer_barrel_(iConfig.getParameter<std::string>("dnnInputLayer_barrel")),
+      dnnOutputLayer_barrel_(iConfig.getParameter<std::string>("dnnOutputLayer_barrel")),
+      decoderPath_barrel_(iConfig.getParameter<std::string>("decoderPath_barrel")),
+      dnnModelPath_endcap_(iConfig.getParameter<std::string>("dnnModelPath_endcap")),
+      dnnInputLayer_endcap_(iConfig.getParameter<std::string>("dnnInputLayer_endcap")),
+      dnnOutputLayer_endcap_(iConfig.getParameter<std::string>("dnnOutputLayer_endcap")),
+      decoderPath_endcap_(iConfig.getParameter<std::string>("decoderPath_endcap"))
 {
   if (getStrategyFromDNN_){
       // to be implemented properly
       tensorflow::setLogging("2");
-      //edm::FileInPath dnnPath(dnnModelPath_);
-      //graphDef = tensorflow::loadGraphDef(dnnPath.fullPath());
-      //tf_session = tensorflow::createSession(graphDef);
+
       edm::FileInPath dnnPath_barrel(dnnModelPath_barrel_);
-      edm::FileInPath dnnPath_endcap(dnnModelPath_endcap_);
       graphDef_barrel = tensorflow::loadGraphDef(dnnPath_barrel.fullPath());
-      graphDef_endcap = tensorflow::loadGraphDef(dnnPath_endcap.fullPath());
       tf_session_barrel = tensorflow::createSession(graphDef_barrel);
+      edm::FileInPath decoderPath_barrel_full(decoderPath_barrel_);
+      decoderFile_barrel_ = TFile::Open(decoderPath_barrel_full.fullPath().c_str());
+      decoderHist_barrel_ = (TH2D*)(decoderFile_barrel_->Get("scheme"));
+
+      edm::FileInPath dnnPath_endcap(dnnModelPath_endcap_);
+      graphDef_endcap = tensorflow::loadGraphDef(dnnPath_endcap.fullPath());
       tf_session_endcap = tensorflow::createSession(graphDef_endcap);
+      edm::FileInPath decoderPath_endcap_full(decoderPath_endcap_);
+      decoderFile_endcap_ = TFile::Open(decoderPath_endcap_full.fullPath().c_str());
+      decoderHist_endcap_ = (TH2D*)(decoderFile_endcap_->Get("scheme"));
   }
   produces<std::vector<TrajectorySeed> >();
 }
@@ -85,6 +95,8 @@ TSGForOIFromL2::~TSGForOIFromL2() {
         tensorflow::closeSession(tf_session_endcap);
         delete graphDef_barrel;
         delete graphDef_endcap;
+        decoderFile_barrel_->Close();
+        decoderFile_endcap_->Close();
     }
 }
 
@@ -196,19 +208,22 @@ void TSGForOIFromL2::produce(edm::StreamID sid, edm::Event& iEvent, const edm::E
     
     // update strategy parameters by evaluating DNN
     if (getStrategyFromDNN_){
-        std::tuple<int, int, int> strategy;
-
-        //auto [nHBd, nHLIP, nHLMuS] = evaluateDnn(l2, tsosAtIP, outerTkStateOutside, tf_session);
+        int nHBd(0), nHLIP(0), nHLMuS(0);
         if (std::abs(l2->eta())<1.0){
-            strategy = evaluateDnn(l2, tsosAtIP, outerTkStateOutside, tf_session_barrel, 5);
+            evaluateDnn(
+                l2, tsosAtIP, outerTkStateOutside, tf_session_barrel,
+                dnnInputLayer_barrel_, dnnOutputLayer_barrel_, decoderHist_barrel_,
+                nHBd, nHLIP, nHLMuS
+            );
         } else {
-            strategy = evaluateDnn(l2, tsosAtIP, outerTkStateOutside, tf_session_endcap, 7);
+            evaluateDnn(
+                l2, tsosAtIP, outerTkStateOutside, tf_session_endcap,
+                dnnInputLayer_endcap_, dnnOutputLayer_endcap_, decoderHist_endcap_,
+                nHBd, nHLIP, nHLMuS
+            );
         }
-        int nHBd = std::get<0>(strategy);
-        int nHLIP = std::get<1>(strategy);
-        int nHLMuS = std::get<2>(strategy);
 
-        //std::cout << "DNN decision: " << nHBd << nHLIP << nHLMuS << std::endl;
+        //std::cout << "DNN decision: " << nHBd << " " << nHLIP << " " << nHLMuS << std::endl;
         maxHitSeeds__ = 0;
         maxHitDoubletSeeds__ = nHBd;
         maxHitlessSeedsIP__ = nHLIP;
@@ -820,25 +835,18 @@ double TSGForOIFromL2::match_Chi2(const TrajectoryStateOnSurface& tsos1, const T
 }
 
 
-std::tuple<int, int, int> TSGForOIFromL2::evaluateDnn(
+void TSGForOIFromL2::evaluateDnn(
     reco::TrackRef l2,
     const TrajectoryStateOnSurface& tsos_IP,
     const TrajectoryStateOnSurface& tsos_MuS,
     tensorflow::Session* session,
-    int nseeds
+    const std::string inputLayer,
+    const std::string outputLayer,
+    TH2D * decoderHist,
+    int& nHB,
+    int& nHLIP,
+    int& nHLMuS
 ) const {
-    // For now the strategies are hard-coded.
-    // Later, they will be supplied from external files.
-
-    //int NSEEDS = 5;
-    //int NSEEDS = 7;
-    int NSEEDS = nseeds;
-    int n_outputs = 21;
-    
-    if (NSEEDS==7){
-        n_outputs = 15; // we didn't use all combinations for 7-seed training
-    };
-    
     int n_features = 26;
     double features[26];
     
@@ -906,107 +914,32 @@ std::tuple<int, int, int> TSGForOIFromL2::evaluateDnn(
     }
     
     std::vector<tensorflow::Tensor> outputs;
-    if (NSEEDS==5){
-        tensorflow::run(session, { { "dnn_5_seeds_0_input", input } }, { "model/dnn_5_seeds_0_output/Sigmoid" }, &outputs);
-    } else if (NSEEDS==7) {
-        tensorflow::run(session, { { "dnn_7_seeds_0_input", input } }, { "model_24/dnn_7_seeds_0_output/Sigmoid" }, &outputs);
-    }
+    tensorflow::run(session, { { inputLayer, input } }, { outputLayer }, &outputs);
+    tensorflow::Tensor out_tensor = outputs[0];
+    tensorflow::TTypes<float, 1>::Matrix dnn_outputs = out_tensor.matrix<float>();
+
     int imax = -1;
-    float max = 0;
-    for (int i = 0; i < n_outputs; i++) {
-        float ith_output = outputs[0].matrix<float>()(0, i);
-        //std::cout << "Output "<< i << ": " << ith_output << std::endl;
-        if (ith_output > max){
-            max = ith_output;
+    float out_max = 0;
+    for (long long int i = 0; i < out_tensor.dim_size(1); i++) {
+        float ith_output = dnn_outputs(0, i);
+        //std::cout << outputLayer << "#" <<  i << " = " << ith_output << std::endl;
+        if (ith_output > out_max){
+            out_max = ith_output;
             imax = i;
         }
     }
-    
-    if (NSEEDS==5){
-        switch(imax) {
-            case 0:
-                return {0, 0, 5};
-            case 1:
-                return {0, 1, 4};
-            case 2:
-                return {0, 2, 3};
-            case 3:
-                return {0, 3, 2};
-            case 4:
-                return {0, 4, 1};
-            case 5:
-                return {0, 5, 0};
-            case 6:
-                return {1, 0, 4};
-            case 7:
-                return {1, 1, 3};
-            case 8:
-                return {1, 2, 2};
-            case 9:
-                return {1, 3, 1};
-            case 10:
-                return {1, 4, 0};
-            case 11:
-                return {2, 0, 3};
-            case 12:
-                return {2, 1, 2};
-            case 13:
-                return {2, 2, 1};
-            case 14:
-                return {2, 3, 0};
-            case 15:
-                return {3, 0, 2};
-            case 16:
-                return {3, 1, 1};
-            case 17:
-                return {3, 2, 0};
-            case 18:
-                return {4, 0, 1};
-            case 19:
-                return {4, 1, 0};
-            case 20:
-                return {5, 0, 0};
-            default :
-                return {1, 4, 0}; // most frequently chosen
-        }
-    } else if (NSEEDS==7){
-        switch(imax) {
-            case 0:
-                return {0, 3, 4};
-            case 1:
-                return {0, 4, 3};
-            case 2:
-                return {0, 5, 2};
-            case 3:
-                return {0, 6, 1};
-            case 4:
-                return {0, 7, 0};
-            case 5:
-                return {1, 3, 3};
-            case 6:
-                return {1, 4, 2};
-            case 7:
-                return {1, 5, 1};
-            case 8:
-                return {1, 6, 0};
-            case 9:
-                return {2, 3, 2};
-            case 10:
-                return {2, 4, 1};
-            case 11:
-                return {2, 5, 0};
-            case 12:
-                return {3, 3, 1};
-            case 13:
-                return {3, 4, 0};
-            case 14:
-                return {4, 3, 0};
-            default :
-                return {0, 6, 1}; // most frequently chosen
-        }
-    }
 
-    return {1, 5, 0}; // something similar to Run2
+    // If you want to check parameter names (stored as bin lables)
+    /*for (int i=0; i<decoderHist->GetXaxis()->GetNbins(); i++){
+        std::cout << decoderHist->GetXaxis()->GetBinLabel(i+1) << std::endl;
+    }*/
+
+    nHB = decoderHist->GetBinContent(1, imax+1);
+    nHLIP = decoderHist->GetBinContent(2, imax+1);
+    nHLMuS = decoderHist->GetBinContent(3, imax+1);
+    
+    //std::cout << "DNN output #"<< imax << ": " << nHB << " " << nHLIP << " " << nHLMuS << std::endl;
+    return;
 }
 
 
@@ -1060,7 +993,13 @@ void TSGForOIFromL2::fillDescriptions(edm::ConfigurationDescriptions& descriptio
   desc.add<bool>("getStrategyFromDNN", false);
   //desc.add<std::string>("dnnModelPath", "");
   desc.add<std::string>("dnnModelPath_barrel", "");
+  desc.add<std::string>("dnnInputLayer_barrel", "");
+  desc.add<std::string>("dnnOutputLayer_barrel", "");
+  desc.add<std::string>("decoderPath_barrel", "");
   desc.add<std::string>("dnnModelPath_endcap", "");
+  desc.add<std::string>("dnnInputLayer_endcap", "");
+  desc.add<std::string>("dnnOutputLayer_endcap", "");
+  desc.add<std::string>("decoderPath_endcap", "");
   descriptions.add("TSGForOIFromL2", desc);
 }
 

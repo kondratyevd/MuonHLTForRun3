@@ -33,6 +33,8 @@
 #include "PhysicsTools/TensorFlow/interface/TensorFlow.h"
 #include "TrackingTools/DetLayers/interface/NavigationSchool.h"
 #include "RecoTracker/Record/interface/NavigationSchoolRecord.h"
+#include <TFile.h>
+#include <TH2D.h>
 
 class TSGForOIFromL2 : public edm::global::EDProducer<> {
 public:
@@ -114,17 +116,24 @@ private:
   const unsigned int maxHitDoubletSeeds_;
   /// Get number of seeds to use from DNN output instead of "max..Seeds" parameters
   const bool getStrategyFromDNN_;
-  //const std::string dnnModelPath_;
+
   const std::string dnnModelPath_barrel_;
-  const std::string dnnModelPath_endcap_;
-  
-  // to be implemented properly
-  //tensorflow::GraphDef* graphDef;
-  //tensorflow::Session* tf_session;
+  const std::string dnnInputLayer_barrel_;
+  const std::string dnnOutputLayer_barrel_;
   tensorflow::GraphDef* graphDef_barrel;
-  tensorflow::GraphDef* graphDef_endcap;
   tensorflow::Session* tf_session_barrel;
+  std::string decoderPath_barrel_;
+  TFile * decoderFile_barrel_;
+  TH2D * decoderHist_barrel_;
+
+  const std::string dnnModelPath_endcap_;
+  const std::string dnnInputLayer_endcap_;
+  const std::string dnnOutputLayer_endcap_;
+  tensorflow::GraphDef* graphDef_endcap;
   tensorflow::Session* tf_session_endcap;
+  std::string decoderPath_endcap_;
+  TFile * decoderFile_endcap_;
+  TH2D * decoderHist_endcap_;
 
   /// Create seeds without hits on a given layer (TOB or TEC)
   void makeSeedsWithoutHits(const GeometricSearchDet& layer,
@@ -166,12 +175,17 @@ private:
   double match_Chi2(const TrajectoryStateOnSurface& tsos1, const TrajectoryStateOnSurface& tsos2) const;
     
   /// Evaluate DNN
-  std::tuple<int, int, int> evaluateDnn(
+  void evaluateDnn(
       reco::TrackRef l2,
       const TrajectoryStateOnSurface& tsos_IP,
       const TrajectoryStateOnSurface& tsos_MuS,
       tensorflow::Session* session,
-      int nseeds
+      const std::string inputLayer,
+      const std::string outputLayer,
+      TH2D * decoderHist,
+      int& nHB,
+      int& nHLIP,
+      int& nHLMuS
   ) const;
 
 };
