@@ -54,13 +54,9 @@ def customizeOIseeding(process, newProcessName = "MYHLT"):
         getStrategyFromDNN = cms.bool(True), # will override max nSeeds of all types and Run2-behavior flags
         etaSplitForDnn = cms.double(1.0),
         dnnModelPath_barrel = cms.string('RecoMuon/TrackerSeedGenerator/data/dnn_5_seeds_0.pb'),
-        dnnInputLayer_barrel = cms.string('dnn_5_seeds_0_input'),
-        dnnOutputLayer_barrel = cms.string('model/dnn_5_seeds_0_output/Sigmoid'),
-        decoderPath_barrel = cms.string('RecoMuon/TrackerSeedGenerator/data/decoder_5_seeds.root'),
+        dnnMetadataPath_barrel = cms.string('RecoMuon/TrackerSeedGenerator/data/metadata_5_seeds.root'),
         dnnModelPath_endcap = cms.string('RecoMuon/TrackerSeedGenerator/data/dnn_7_seeds_0.pb'),
-        decoderPath_endcap = cms.string('RecoMuon/TrackerSeedGenerator/data/decoder_7_seeds.root'),
-        dnnInputLayer_endcap = cms.string('dnn_7_seeds_0_input'),
-        dnnOutputLayer_endcap = cms.string('model_24/dnn_7_seeds_0_output/Sigmoid'),
+        dnnMetadataPath_endcap = cms.string('RecoMuon/TrackerSeedGenerator/data/metadata_7_seeds.root'),
     )
 
     return process

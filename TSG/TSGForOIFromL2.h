@@ -119,22 +119,22 @@ private:
   const bool getStrategyFromDNN_;
   const double etaSplitForDnn_;
 
+  tensorflow::GraphDef* graphDef_barrel_;
+  tensorflow::Session* tf_session_barrel_;
   const std::string dnnModelPath_barrel_;
-  const std::string dnnInputLayer_barrel_;
-  const std::string dnnOutputLayer_barrel_;
-  tensorflow::GraphDef* graphDef_barrel;
-  tensorflow::Session* tf_session_barrel;
-  std::string decoderPath_barrel_;
-  TFile * decoderFile_barrel_;
+  const std::string dnnMetadataPath_barrel_;
+  TFile * metadataFile_barrel_;
+  TH1D * inpOrderHist_barrel_;
+  TH1D * layerNamesHist_barrel_;
   TH2D * decoderHist_barrel_;
 
+  tensorflow::GraphDef* graphDef_endcap_;
+  tensorflow::Session* tf_session_endcap_;
   const std::string dnnModelPath_endcap_;
-  const std::string dnnInputLayer_endcap_;
-  const std::string dnnOutputLayer_endcap_;
-  tensorflow::GraphDef* graphDef_endcap;
-  tensorflow::Session* tf_session_endcap;
-  std::string decoderPath_endcap_;
-  TFile * decoderFile_endcap_;
+  const std::string dnnMetadataPath_endcap_;
+  TFile * metadataFile_endcap_;
+  TH1D * inpOrderHist_endcap_;
+  TH1D * layerNamesHist_endcap_;
   TH2D * decoderHist_endcap_;
 
   /// Create seeds without hits on a given layer (TOB or TEC)
@@ -187,8 +187,8 @@ private:
   void evaluateDnn(
       std::map<std::string, float> feature_map,
       tensorflow::Session* session,
-      const std::string inputLayer,
-      const std::string outputLayer,
+      TH1D * inpOrderHist,
+      TH1D * layerNamesHist,
       TH2D * decoderHist,
       int& nHB,
       int& nHLIP,
