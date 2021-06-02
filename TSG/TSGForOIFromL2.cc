@@ -8,8 +8,8 @@
 #include "DataFormats/TrackerCommon/interface/TrackerTopology.h"
 #include "DataFormats/Math/interface/deltaR.h"
 #include "Geometry/TrackerGeometryBuilder/interface/TrackerGeometry.h"
-
 #include <memory>
+
 
 TSGForOIFromL2::TSGForOIFromL2(const edm::ParameterSet& iConfig)
     : src_(consumes<reco::TrackCollection>(iConfig.getParameter<edm::InputTag>("src"))),
@@ -58,31 +58,25 @@ TSGForOIFromL2::TSGForOIFromL2(const edm::ParameterSet& iConfig)
       maxHitDoubletSeeds_(iConfig.getParameter<uint32_t>("maxHitDoubletSeeds")),
       getStrategyFromDNN_(iConfig.getParameter<bool>("getStrategyFromDNN")),
       etaSplitForDnn_(iConfig.getParameter<double>("etaSplitForDnn")),
-      dnnModelPath_barrel_(iConfig.getParameter<std::string>("dnnModelPath_barrel")),
-      dnnMetadataPath_barrel_(iConfig.getParameter<std::string>("dnnMetadataPath_barrel")),
-      dnnModelPath_endcap_(iConfig.getParameter<std::string>("dnnModelPath_endcap")),
-      dnnMetadataPath_endcap_(iConfig.getParameter<std::string>("dnnMetadataPath_endcap"))
+      dnnMetadataPath_(iConfig.getParameter<std::string>("dnnMetadataPath"))
 {
   if (getStrategyFromDNN_){
-      tensorflow::setLogging("2");
+    // Load the json file in this ptree
+    pt::ptree metadata;
+    edm::FileInPath dnnMetadataPath(dnnMetadataPath_);
+    pt::read_json(dnnMetadataPath.fullPath(), metadata);
+    tensorflow::setLogging("2");
 
-      edm::FileInPath dnnPath_barrel(dnnModelPath_barrel_);
-      graphDef_barrel_ = tensorflow::loadGraphDef(dnnPath_barrel.fullPath());
-      tf_session_barrel_ = tensorflow::createSession(graphDef_barrel_);
-      edm::FileInPath dnnMetadataPath_barrel_full(dnnMetadataPath_barrel_);
-      metadataFile_barrel_ = TFile::Open(dnnMetadataPath_barrel_full.fullPath().c_str());
-      inpOrderHist_barrel_ = (TH1D*)(metadataFile_barrel_->Get("input_order"));
-      layerNamesHist_barrel_ = (TH1D*)(metadataFile_barrel_->Get("layer_names"));
-      decoderHist_barrel_ = (TH2D*)(metadataFile_barrel_->Get("scheme"));
 
-      edm::FileInPath dnnPath_endcap(dnnModelPath_endcap_);
-      graphDef_endcap_ = tensorflow::loadGraphDef(dnnPath_endcap.fullPath());
-      tf_session_endcap_ = tensorflow::createSession(graphDef_endcap_);
-      edm::FileInPath dnnMetadataPath_endcap_full(dnnMetadataPath_endcap_);
-      metadataFile_endcap_ = TFile::Open(dnnMetadataPath_endcap_full.fullPath().c_str());
-      inpOrderHist_endcap_ = (TH1D*)(metadataFile_endcap_->Get("input_order"));
-      layerNamesHist_endcap_ = (TH1D*)(metadataFile_endcap_->Get("layer_names"));
-      decoderHist_endcap_ = (TH2D*)(metadataFile_endcap_->Get("scheme"));
+    std::string dnnModelPath_barrel_ = metadata.get<std::string>("dnnModelPathName_barrel");
+    edm::FileInPath dnnPath_barrel(dnnModelPath_barrel_);
+    graphDef_barrel_ = tensorflow::loadGraphDef(dnnPath_barrel.fullPath());
+    tf_session_barrel_ = tensorflow::createSession(graphDef_barrel_);
+
+    std::string dnnModelPath_endcap_ = metadata.get<std::string>("dnnModelPathName_endcap");
+    edm::FileInPath dnnPath_endcap(dnnModelPath_endcap_);
+    graphDef_endcap_ = tensorflow::loadGraphDef(dnnPath_endcap.fullPath());
+    tf_session_endcap_ = tensorflow::createSession(graphDef_endcap_);
   }
   produces<std::vector<TrajectorySeed> >();
 }
@@ -93,8 +87,6 @@ TSGForOIFromL2::~TSGForOIFromL2() {
         tensorflow::closeSession(tf_session_endcap_);
         delete graphDef_barrel_;
         delete graphDef_endcap_;
-        metadataFile_barrel_->Close();
-        metadataFile_endcap_->Close();
     }
 }
 
@@ -208,30 +200,13 @@ void TSGForOIFromL2::produce(edm::StreamID sid, edm::Event& iEvent, const edm::E
     if (getStrategyFromDNN_){
         int nHBd(0), nHLIP(0), nHLMuS(0);
         bool dnnSuccess_ = false;
-
-        // Put variables needed for DNN into an std::map
-        std::map<std::string, float> feature_map_ = getFeatureMap(l2, tsosAtIP, outerTkStateOutside);
-        //for (auto const &pair: feature_map_) {
-        //    std::cout << pair.first << " = " << pair.second << srd::endl;
-        //}
-
-        if (std::abs(l2->eta())<etaSplitForDnn_){
-            // barrel
-            evaluateDnn(
-                feature_map_, tf_session_barrel_,
-                inpOrderHist_barrel_, layerNamesHist_barrel_, decoderHist_barrel_,
-                nHBd, nHLIP, nHLMuS, dnnSuccess_
-            );
-        } else {
-            // endcap
-            evaluateDnn(
-                feature_map_, tf_session_endcap_,
-                inpOrderHist_endcap_, layerNamesHist_endcap_, decoderHist_endcap_,
-                nHBd, nHLIP, nHLMuS, dnnSuccess_
-            );
-        }
+	if(std::abs(l2->eta())<etaSplitForDnn_){
+	  std::tie(nHBd, nHLIP, nHLMuS, dnnSuccess_) = evaluateDnn(l2, tsosAtIP, outerTkStateOutside, tf_session_barrel_, metadata.get_child("barrel"));
+	} else {
+	  std::tie(nHBd, nHLIP, nHLMuS, dnnSuccess_) = evaluateDnn(l2, tsosAtIP, outerTkStateOutside, tf_session_endcap_, metadata.get_child("endcap"));
+	}
         if (!dnnSuccess_) break;
-        //std::cout << "DNN decision: " << nHBd << " " << nHLIP << " " << nHLMuS << std::endl;
+        std::cout << "DNN decision: " << nHBd << " " << nHLIP << " " << nHLMuS << std::endl;
         maxHitSeeds__ = 0;
         maxHitDoubletSeeds__ = nHBd;
         maxHitlessSeedsIP__ = nHLIP;
@@ -843,137 +818,159 @@ double TSGForOIFromL2::match_Chi2(const TrajectoryStateOnSurface& tsos1, const T
 }
 
 
-std::map<std::string, float> TSGForOIFromL2::getFeatureMap(
+std::tuple<int, int, int, bool> TSGForOIFromL2::evaluateDnn(
     reco::TrackRef l2,
     const TrajectoryStateOnSurface& tsos_IP,
-    const TrajectoryStateOnSurface& tsos_MuS
-) const {
-    std::map<std::string, float> the_map;
-    the_map["pt"] = l2->pt();
-    the_map["eta"] = l2->eta();
-    the_map["phi"] = l2->phi();
-    the_map["validHits"] = l2->found();
-    if (tsos_IP.isValid()) {
-        the_map["tsos_IP_eta"] = tsos_IP.globalPosition().eta();
-        the_map["tsos_IP_phi"] = tsos_IP.globalPosition().phi();
-        the_map["tsos_IP_pt"] = tsos_IP.globalMomentum().perp();
-        the_map["tsos_IP_pt_eta"] = tsos_IP.globalMomentum().eta();
-        the_map["tsos_IP_pt_phi"] = tsos_IP.globalMomentum().phi();
-        AlgebraicSymMatrix55 matrix_IP = tsos_IP.curvilinearError().matrix();
-        the_map["err0_IP"] = sqrt(matrix_IP[0][0]);
-        the_map["err1_IP"] = sqrt(matrix_IP[1][1]);
-        the_map["err2_IP"] = sqrt(matrix_IP[2][2]);
-        the_map["err3_IP"] = sqrt(matrix_IP[3][3]);
-        the_map["err4_IP"] = sqrt(matrix_IP[4][4]);
-        the_map["tsos_IP_valid"] = 1.0;
-    } else {
-        the_map["tsos_IP_eta"] = -999;
-        the_map["tsos_IP_phi"] = -999;
-        the_map["tsos_IP_pt"] = -999;
-        the_map["tsos_IP_pt_eta"] = -999;
-        the_map["tsos_IP_pt_phi"] = -999;
-        the_map["err0_IP"] = -999;
-        the_map["err1_IP"] = -999;
-        the_map["err2_IP"] = -999;
-        the_map["err3_IP"] = -999;
-        the_map["err4_IP"] = -999;
-        the_map["tsos_IP_valid"] = 0.0;
-    }
-    if (tsos_MuS.isValid()) {
-        the_map["tsos_MuS_eta"] = tsos_MuS.globalPosition().eta();
-        the_map["tsos_MuS_phi"] = tsos_MuS.globalPosition().phi();
-        the_map["tsos_MuS_pt"] = tsos_MuS.globalMomentum().perp();
-        the_map["tsos_MuS_pt_eta"] = tsos_MuS.globalMomentum().eta();
-        the_map["tsos_MuS_pt_phi"] = tsos_MuS.globalMomentum().phi();
-        AlgebraicSymMatrix55 matrix_MuS = tsos_MuS.curvilinearError().matrix();
-        the_map["err0_MuS"] = sqrt(matrix_MuS[0][0]);
-        the_map["err1_MuS"] = sqrt(matrix_MuS[1][1]);
-        the_map["err2_MuS"] = sqrt(matrix_MuS[2][2]);
-        the_map["err3_MuS"] = sqrt(matrix_MuS[3][3]);
-        the_map["err4_MuS"] = sqrt(matrix_MuS[4][4]);
-        the_map["tsos_MuS_valid"] = 1.0;
-    } else {
-        the_map["tsos_MuS_eta"] = -999;
-        the_map["tsos_MuS_phi"] = -999;
-        the_map["tsos_MuS_pt"] = -999;
-        the_map["tsos_MuS_pt_eta"] = -999;
-        the_map["tsos_MuS_pt_phi"] = -999;
-        the_map["err0_MuS"] = -999;
-        the_map["err1_MuS"] = -999;
-        the_map["err2_MuS"] = -999;
-        the_map["err3_MuS"] = -999;
-        the_map["err4_MuS"] = -999;
-        the_map["tsos_MuS_valid"] = 0.0;
-    }
-    return the_map;
-}
-
-
-void TSGForOIFromL2::evaluateDnn(
-    std::map<std::string, float> feature_map,
+    const TrajectoryStateOnSurface& tsos_MuS,
     tensorflow::Session* session,
-    TH1D * inpOrderHist,
-    TH1D * layerNamesHist,
-    TH2D * decoderHist,
-    int& nHB,
-    int& nHLIP,
-    int& nHLMuS,
-    bool& dnnSuccess
+    pt::ptree metadata
 ) const {
-    int n_features = inpOrderHist->GetXaxis()->GetNbins();
-    
-    // Prepare tensor for DNN inputs
-    tensorflow::Tensor input(tensorflow::DT_FLOAT, { 1, n_features });
-    std::string fname;
-    for (int i=0; i<n_features; i++){
-        fname = inpOrderHist->GetXaxis()->GetBinLabel(i+1);
-        if (feature_map.find(fname) == feature_map.end()) {
-            std::cout << "Couldn't find " << fname << " in feature_map! Will not evaluate DNN." << std::endl;
-            return;
-        }
-        else {
-            input.matrix<float>()(0, i) = float(feature_map.at(fname));
-            //std::cout << "Input #" << i << ": " << fname << " = " << feature_map.at(fname) << std::endl;
-        }
+  int nHB, nHLIP,nHLMuS, n_features = 0;
+  bool dnnSuccess = false;
+  float feature_value = -999;
+  //int n_features = inpOrderHist->GetXaxis()->GetNbins();
+  n_features = metadata.get<int>("nFeatures", 0);    
+  // Prepare tensor for DNN inputs
+  tensorflow::Tensor input(tensorflow::DT_FLOAT, { 1, n_features });
+  std::string fname;
+  int i_feature = 0;
+  for (pt::ptree::value_type &feature : metadata.get_child("feature_names")){
+    fname = feature.second.data();
+    //std::cout<<"This is "<<fname<<std::endl;
+    if(fname == "pt"){
+      feature_value = l2->pt();
     }
-
-    // Prepare tensor for DNN outputs
-    std::vector<tensorflow::Tensor> outputs;
-
-    // Evaluate DNN and put results in output tensor
-    std::string inputLayer = layerNamesHist->GetXaxis()->GetBinLabel(1);
-    std::string outputLayer = layerNamesHist->GetXaxis()->GetBinLabel(2);
-    //std::cout << inputLayer << " " << outputLayer << std::endl;
-    tensorflow::run(session, { { inputLayer, input } }, { outputLayer }, &outputs);
-    tensorflow::Tensor out_tensor = outputs[0];
-    tensorflow::TTypes<float, 1>::Matrix dnn_outputs = out_tensor.matrix<float>();
-
-    // Find output with largest prediction
-    int imax = -1;
-    float out_max = 0;
-    for (long long int i = 0; i < out_tensor.dim_size(1); i++) {
-        float ith_output = dnn_outputs(0, i);
-        //std::cout << outputLayer << "#" <<  i << " = " << ith_output << std::endl;
-        if (ith_output > out_max){
-            imax = i;
-            out_max = ith_output;
-        }
+    else if(fname == "eta"){
+      feature_value = l2->eta();
     }
-
-    // Decode output
-    nHB = decoderHist->GetBinContent(1, imax+1);
-    nHLIP = decoderHist->GetBinContent(2, imax+1);
-    nHLMuS = decoderHist->GetBinContent(3, imax+1);
-
-    // If you want to verify that parameters are interpreted correctly,
-    // you can print out parameter names, stored as bin lables
-    /*for (int i=0; i<decoderHist->GetXaxis()->GetNbins(); i++){
-        std::cout << decoderHist->GetXaxis()->GetBinLabel(i+1) << std::endl;
-    }*/
+    else if(fname == "phi"){
+      feature_value = l2->phi();
+    }
+    else if(fname == "validHits"){
+      feature_value = l2->found();
+    }
+    if(fname == "pt"){
+      feature_value = l2->pt();
+    }
+    else if(fname == "eta"){
+      feature_value = l2->eta();
+    }
+    else if(fname == "phi"){
+      feature_value = l2->phi();
+    }
+    else if(fname == "validHits"){
+      feature_value = l2->found();
+    }
+    else if(fname == "tsos_IP_eta"){
+      if(tsos_IP.isValid()) feature_value = tsos_IP.globalPosition().eta();
+    }
+    else if(fname == "tsos_IP_phi"){
+      if(tsos_IP.isValid()) feature_value = tsos_IP.globalPosition().phi();
+    }
+    else if(fname == "tsos_IP_pt"){
+      if(tsos_IP.isValid()) feature_value = tsos_IP.globalMomentum().perp();
+    }
+    else if(fname == "tsos_IP_pt_eta"){
+      if(tsos_IP.isValid()) feature_value = tsos_IP.globalMomentum().eta();
+    }
+    else if(fname == "tsos_IP_pt_phi"){
+      if(tsos_IP.isValid()) feature_value = tsos_IP.globalMomentum().phi();
+    }
+    else if(fname == "err0_IP"){
+      if(tsos_IP.isValid()) feature_value = (tsos_IP.curvilinearError().matrix())[0][0];
+    }
+    else if(fname == "err1_IP"){
+      if(tsos_IP.isValid()) feature_value = (tsos_IP.curvilinearError().matrix())[1][1];
+    }
+    else if(fname == "err2_IP"){
+      if(tsos_IP.isValid()) feature_value = (tsos_IP.curvilinearError().matrix())[2][2];
+    }
+    else if(fname == "err3_IP"){
+      if(tsos_IP.isValid()) feature_value = (tsos_IP.curvilinearError().matrix())[3][3];
+    }
+    else if(fname == "err4_IP"){
+      if(tsos_IP.isValid()) feature_value = (tsos_IP.curvilinearError().matrix())[4][4];
+    }
+    else if(fname == "tsos_IP_valid"){
+      if(tsos_IP.isValid()) feature_value = 1.0;
+      else feature_value = 0.0;
+    }
     
-    //std::cout << "DNN output #"<< imax << ": " << nHB << " " << nHLIP << " " << nHLMuS << std::endl;
-    dnnSuccess = true;
-    return;
+    
+    else if(fname == "tsos_MuS_eta"){
+      if(tsos_MuS.isValid()) feature_value = tsos_MuS.globalPosition().eta();
+    }
+    else if(fname == "tsos_MuS_phi"){
+      if(tsos_MuS.isValid()) feature_value = tsos_MuS.globalPosition().phi();
+    }
+    else if(fname == "tsos_MuS_pt"){
+      if(tsos_MuS.isValid()) feature_value = tsos_MuS.globalMomentum().perp();
+    }
+    else if(fname == "tsos_MuS_pt_eta"){
+      if(tsos_MuS.isValid()) feature_value = tsos_MuS.globalMomentum().eta();
+    }
+    else if(fname == "tsos_MuS_pt_phi"){
+      if(tsos_MuS.isValid()) feature_value = tsos_MuS.globalMomentum().phi();
+    }
+    else if(fname == "err0_MuS"){
+      if(tsos_MuS.isValid()) feature_value = (tsos_MuS.curvilinearError().matrix())[0][0];
+    }
+    else if(fname == "err1_MuS"){
+      if(tsos_MuS.isValid()) feature_value = (tsos_MuS.curvilinearError().matrix())[1][1];
+    }
+    else if(fname == "err2_MuS"){
+      if(tsos_MuS.isValid()) feature_value = (tsos_MuS.curvilinearError().matrix())[2][2];
+    }
+    else if(fname == "err3_MuS"){
+      if(tsos_MuS.isValid()) feature_value = (tsos_MuS.curvilinearError().matrix())[3][3];
+    }
+    else if(fname == "err4_MuS"){
+      if(tsos_MuS.isValid()) feature_value = (tsos_MuS.curvilinearError().matrix())[4][4];
+    }
+    else if(fname == "tsos_MuS_valid"){
+      if(tsos_MuS.isValid()) feature_value = 1.0;
+      else feature_value = 0.0;
+    }
+    
+    else{
+      std::cout<<"Sorry, couldn't find "<<fname<<" in the predefined list of inputs inside the producer! Will not evaluate DNN. Please update the Seed producer if you want to add this input variable."<<std::endl;
+      return std::make_tuple(nHB, nHLIP, nHLMuS, dnnSuccess);
+    }
+    std::cout << "Input #" << i_feature << ": " << fname << " = " << feature_value << std::endl;
+    input.matrix<float>()(0, i_feature) = feature_value;
+    i_feature++;	  
+  }
+  // Prepare tensor for DNN outputs
+  std::vector<tensorflow::Tensor> outputs;
+  
+  // Evaluate DNN and put results in output tensor
+  std::string inputLayer = metadata.get<std::string>("input_layer");
+  std::string outputLayer = metadata.get<std::string>("output_layer");
+  //std::cout << inputLayer << " " << outputLayer << std::endl;
+  tensorflow::run(session, { { inputLayer, input } }, { outputLayer }, &outputs);
+  tensorflow::Tensor out_tensor = outputs[0];
+  tensorflow::TTypes<float, 1>::Matrix dnn_outputs = out_tensor.matrix<float>();
+  
+  // Find output with largest prediction
+  int imax = -1;
+  float out_max = 0;
+  for (long long int i = 0; i < out_tensor.dim_size(1); i++) {
+    float ith_output = dnn_outputs(0, i);
+    //std::cout << outputLayer << "#" <<  i << " = " << ith_output << std::endl;
+    if (ith_output > out_max){
+      imax = i;
+      out_max = ith_output;
+    }
+  }
+  
+  // Decode output
+  nHB = metadata.get<int>("output_labels.label_"+std::to_string(imax)+".nHB");
+  nHLIP = metadata.get<int>("output_labels.label_"+std::to_string(imax)+".nHLIP");
+  nHLMuS = metadata.get<int>("output_labels.label_"+std::to_string(imax)+".nHLMuS");
+  
+  //std::cout << "DNN output #"<< imax << ": " << nHB << " " << nHLIP << " " << nHLMuS << std::endl;
+  dnnSuccess = true;
+  return std::make_tuple(nHB, nHLIP, nHLMuS, dnnSuccess);
 }
 
 
@@ -1026,10 +1023,7 @@ void TSGForOIFromL2::fillDescriptions(edm::ConfigurationDescriptions& descriptio
   desc.add<unsigned int>("maxHitDoubletSeeds", 0);
   desc.add<bool>("getStrategyFromDNN", false);
   desc.add<double>("etaSplitForDnn", 1.0);
-  desc.add<std::string>("dnnModelPath_barrel", "");
-  desc.add<std::string>("dnnMetadataPath_barrel", "");
-  desc.add<std::string>("dnnModelPath_endcap", "");
-  desc.add<std::string>("dnnMetadataPath_endcap", "");
+  desc.add<std::string>("dnnMetadataPath", "");
   descriptions.add("TSGForOIFromL2", desc);
 }
 

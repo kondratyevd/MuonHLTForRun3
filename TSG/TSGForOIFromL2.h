@@ -33,9 +33,11 @@
 #include "PhysicsTools/TensorFlow/interface/TensorFlow.h"
 #include "TrackingTools/DetLayers/interface/NavigationSchool.h"
 #include "RecoTracker/Record/interface/NavigationSchoolRecord.h"
-#include <TFile.h>
-#include <TH2D.h>
-
+//#include <TFile.h>
+//#include <TH2D.h>
+#include <boost/property_tree/ptree.hpp>
+#include <boost/property_tree/json_parser.hpp>
+namespace pt = boost::property_tree;
 
 class TSGForOIFromL2 : public edm::global::EDProducer<> {
 public:
@@ -59,7 +61,7 @@ private:
 
   /// How many layers to try
   const unsigned int numOfLayersToTry_;
-
+  
   /// How many hits to try per layer
   const unsigned int numOfHitsToTry_;
 
@@ -118,24 +120,14 @@ private:
   /// Get number of seeds to use from DNN output instead of "max..Seeds" parameters
   const bool getStrategyFromDNN_;
   const double etaSplitForDnn_;
+  pt::ptree metadata;
 
   tensorflow::GraphDef* graphDef_barrel_;
   tensorflow::Session* tf_session_barrel_;
-  const std::string dnnModelPath_barrel_;
-  const std::string dnnMetadataPath_barrel_;
-  TFile * metadataFile_barrel_;
-  TH1D * inpOrderHist_barrel_;
-  TH1D * layerNamesHist_barrel_;
-  TH2D * decoderHist_barrel_;
+  const std::string dnnMetadataPath_;
 
   tensorflow::GraphDef* graphDef_endcap_;
   tensorflow::Session* tf_session_endcap_;
-  const std::string dnnModelPath_endcap_;
-  const std::string dnnMetadataPath_endcap_;
-  TFile * metadataFile_endcap_;
-  TH1D * inpOrderHist_endcap_;
-  TH1D * layerNamesHist_endcap_;
-  TH2D * decoderHist_endcap_;
 
   /// Create seeds without hits on a given layer (TOB or TEC)
   void makeSeedsWithoutHits(const GeometricSearchDet& layer,
@@ -176,24 +168,13 @@ private:
   /// Find compatability between two TSOSs
   double match_Chi2(const TrajectoryStateOnSurface& tsos1, const TrajectoryStateOnSurface& tsos2) const;
   
-  /// Dictionary of inputs for DNN
-  std::map<std::string, float> getFeatureMap(
+  /// Evaluate DNN
+  std::tuple<int, int, int, bool> evaluateDnn(
       reco::TrackRef l2,
       const TrajectoryStateOnSurface& tsos_IP,     
-      const TrajectoryStateOnSurface& tsos_MuS
-  ) const;
-    
-  /// Evaluate DNN
-  void evaluateDnn(
-      std::map<std::string, float> feature_map,
+      const TrajectoryStateOnSurface& tsos_MuS,		   
       tensorflow::Session* session,
-      TH1D * inpOrderHist,
-      TH1D * layerNamesHist,
-      TH2D * decoderHist,
-      int& nHB,
-      int& nHLIP,
-      int& nHLMuS,
-      bool& dnnSuccess
+      pt::ptree metadata
   ) const;
 
 };

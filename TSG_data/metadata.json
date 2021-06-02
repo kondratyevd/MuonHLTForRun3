@@ -1,0 +1,292 @@
+{
+    "barrel": {
+	"dnnmodel_name" : "RecoMuon/TrackerSeedGenerator/data/dnn_5_seeds_0.pb",
+        "n_features": 26,
+        "feature_names": [
+            "pt",
+            "eta",
+            "phi",
+            "validHits",
+            "tsos_IP_eta",
+            "tsos_IP_phi",
+            "tsos_IP_pt",
+            "tsos_IP_pt_eta",
+            "tsos_IP_pt_phi",
+            "err0_IP",
+            "err1_IP",
+            "err2_IP",
+            "err3_IP",
+            "err4_IP",
+            "tsos_MuS_eta",
+            "tsos_MuS_phi",
+            "tsos_MuS_pt",
+            "tsos_MuS_pt_eta",
+            "tsos_MuS_pt_phi",
+            "err0_MuS",
+            "err1_MuS",
+            "err2_MuS",
+            "err3_MuS",
+            "err4_MuS",
+            "tsos_IP_valid",
+            "tsos_MuS_valid"
+        ],
+	"output_labels" :
+	{
+	    "label_1":
+	    {
+		"nHB" : 0,
+		"nHLIP" : 0,
+		"nHLMuS" : 5
+	    },
+	    "label_2":
+	    {
+		"nHB" : 0,
+		"nHLIP" : 1,
+		"nHLMuS" : 4
+	    },
+	    "label_3":
+	    {
+		"nHB" : 0,
+		"nHLIP" : 2,
+		"nHLMuS" : 3
+	    },
+	    "label_4":
+	    {
+		"nHB" : 0,
+		"nHLIP" : 3,
+		"nHLMuS" : 2
+	    },
+	    "label_5":
+	    {
+		"nHB" : 0,
+		"nHLIP" : 4,
+		"nHLMuS" : 1
+	    },
+	    "label_6":
+	    {
+		"nHB" : 0,
+		"nHLIP" : 5,
+		"nHLMuS" : 0
+	    },
+	    "label_7":
+	    {
+		"nHB" : 1,
+		"nHLIP" : 0,
+		"nHLMuS" : 4
+	    },
+	    "label_8":
+	    {
+		"nHB" : 1,
+		"nHLIP" : 1,
+		"nHLMuS" : 3
+	    },
+	    "label_9":
+	    {
+		"nHB" : 1,
+		"nHLIP" : 2,
+		"nHLMuS" : 2
+	    },
+	    "label_10":
+	    {
+		"nHB" : 1,
+		"nHLIP" : 3,
+		"nHLMuS" : 1
+	    },
+	    "label_11":
+	    {
+		"nHB" : 1,
+		"nHLIP" : 4,
+		"nHLMuS" : 0
+	    },
+	    "label_12":
+	    {
+		"nHB" : 2,
+		"nHLIP" : 0,
+		"nHLMuS" : 3
+	    },
+	    "label_13":
+	    {
+		"nHB" : 2,
+		"nHLIP" : 1,
+		"nHLMuS" : 2
+	    },
+	    "label_14":
+	    {
+		"nHB" : 2,
+		"nHLIP" : 2,
+		"nHLMuS" : 1
+	    },
+	    "label_15":
+	    {
+		"nHB" : 2,
+		"nHLIP" : 3,
+		"nHLMuS" : 0
+	    },
+	    "label_16":
+	    {
+		"nHB" : 3,
+		"nHLIP" : 0,
+		"nHLMuS" : 2
+	    },
+	    "label_17":
+	    {
+		"nHB" : 3,
+		"nHLIP" : 1,
+		"nHLMuS" : 1
+	    },
+	    "label_18":
+	    {
+		"nHB" : 3,
+		"nHLIP" : 2,
+		"nHLMuS" : 0
+	    },
+	    "label_19":
+	    {
+		"nHB" : 4,
+		"nHLIP" : 0,
+		"nHLMuS" : 1
+	    },
+	    "label_20":
+	    {
+		"nHB" : 4,
+		"nHLIP" : 1,
+		"nHLMuS" : 0
+	    },
+	    "label_21":
+	    {
+		"nHB" : 5,
+		"nHLIP" : 0,
+		"nHLMuS" : 0
+	    }
+	},
+	"input_layer": "dnn_5_seeds_0_input",
+        "output_layer": "model/dnn_5_seeds_0_output/Sigmoid"
+    },
+    "endcap": {
+	"dnnmodel_name" : "RecoMuon/TrackerSeedGenerator/data/dnn_7_seeds_0.pb",
+        "n_features": 26,
+        "feature_names": [
+            "pt",
+            "eta",
+            "phi",
+            "validHits",
+            "tsos_IP_eta",
+            "tsos_IP_phi",
+            "tsos_IP_pt",
+            "tsos_IP_pt_eta",
+            "tsos_IP_pt_phi",
+            "err0_IP",
+            "err1_IP",
+            "err2_IP",
+            "err3_IP",
+            "err4_IP",
+            "tsos_MuS_eta",
+            "tsos_MuS_phi",
+            "tsos_MuS_pt",
+            "tsos_MuS_pt_eta",
+            "tsos_MuS_pt_phi",
+            "err0_MuS",
+            "err1_MuS",
+            "err2_MuS",
+            "err3_MuS",
+            "err4_MuS",
+            "tsos_IP_valid",
+            "tsos_MuS_valid"
+        ],
+	"output_labels" :
+	{
+	    "label_1":
+	    {
+		"nHB" : 0,
+		"nHLIP" : 3,
+		"nHLMuS" : 4
+	    },
+	    "label_2":
+	    {
+		"nHB" : 0,
+		"nHLIP" : 4,
+		"nHLMuS" : 3
+	    },
+	    "label_3":
+	    {
+		"nHB" : 0,
+		"nHLIP" : 5,
+		"nHLMuS" : 2
+	    },
+	    "label_4":
+	    {
+		"nHB" : 0,
+		"nHLIP" : 6,
+		"nHLMuS" : 1
+	    },
+	    "label_5":
+	    {
+		"nHB" : 0,
+		"nHLIP" : 7,
+		"nHLMuS" : 0
+	    },
+	    "label_6":
+	    {
+		"nHB" : 1,
+		"nHLIP" : 3,
+		"nHLMuS" : 3
+	    },
+	    "label_7":
+	    {
+		"nHB" : 1,
+		"nHLIP" : 4,
+		"nHLMuS" : 2
+	    },
+	    "label_8":
+	    {
+		"nHB" : 1,
+		"nHLIP" : 5,
+		"nHLMuS" : 1
+	    },
+	    "label_9":
+	    {
+		"nHB" : 1,
+		"nHLIP" : 6,
+		"nHLMuS" : 0
+	    },
+	    "label_10":
+	    {
+		"nHB" : 2,
+		"nHLIP" : 3,
+		"nHLMuS" : 2
+	    },
+	    "label_11":
+	    {
+		"nHB" : 2,
+		"nHLIP" : 4,
+		"nHLMuS" : 1
+	    },
+	    "label_12":
+	    {
+		"nHB" : 2,
+		"nHLIP" : 5,
+		"nHLMuS" : 0
+	    },
+	    "label_13":
+	    {
+		"nHB" : 3,
+		"nHLIP" : 3,
+		"nHLMuS" : 1
+	    },
+	    "label_14":
+	    {
+		"nHB" : 3,
+		"nHLIP" : 4,
+		"nHLMuS" : 0
+	    },
+	    "label_15":
+	    {
+		"nHB" : 4,
+		"nHLIP" : 3,
+		"nHLMuS" : 0
+	    }
+	},
+        "input_layer": "dnn_7_seeds_0_input",
+        "output_layer": "model_24/dnn_7_seeds_0_output/Sigmoid"
+    }
+}
