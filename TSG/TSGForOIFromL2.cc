@@ -58,31 +58,22 @@ TSGForOIFromL2::TSGForOIFromL2(const edm::ParameterSet& iConfig)
       maxHitDoubletSeeds_(iConfig.getParameter<uint32_t>("maxHitDoubletSeeds")),
       getStrategyFromDNN_(iConfig.getParameter<bool>("getStrategyFromDNN")),
       etaSplitForDnn_(iConfig.getParameter<double>("etaSplitForDnn")),
-      dnnModelPath_barrel_(iConfig.getParameter<std::string>("dnnModelPath_barrel")),
-      dnnMetadataPath_barrel_(iConfig.getParameter<std::string>("dnnMetadataPath_barrel")),
-      dnnModelPath_endcap_(iConfig.getParameter<std::string>("dnnModelPath_endcap")),
-      dnnMetadataPath_endcap_(iConfig.getParameter<std::string>("dnnMetadataPath_endcap"))
+      dnnMetadataPath_(iConfig.getParameter<std::string>("dnnMetadataPath"))
 {
   if (getStrategyFromDNN_){
+      edm::FileInPath dnnMetadataPath(dnnMetadataPath_);
+      pt::read_json(dnnMetadataPath.fullPath(), metadata);
       tensorflow::setLogging("2");
 
+      dnnModelPath_barrel_ = metadata.get<std::string>("barrel.dnnmodel_path");
       edm::FileInPath dnnPath_barrel(dnnModelPath_barrel_);
       graphDef_barrel_ = tensorflow::loadGraphDef(dnnPath_barrel.fullPath());
       tf_session_barrel_ = tensorflow::createSession(graphDef_barrel_);
-      edm::FileInPath dnnMetadataPath_barrel_full(dnnMetadataPath_barrel_);
-      metadataFile_barrel_ = TFile::Open(dnnMetadataPath_barrel_full.fullPath().c_str());
-      inpOrderHist_barrel_ = (TH1D*)(metadataFile_barrel_->Get("input_order"));
-      layerNamesHist_barrel_ = (TH1D*)(metadataFile_barrel_->Get("layer_names"));
-      decoderHist_barrel_ = (TH2D*)(metadataFile_barrel_->Get("scheme"));
 
+      dnnModelPath_endcap_ = metadata.get<std::string>("endcap.dnnmodel_path");
       edm::FileInPath dnnPath_endcap(dnnModelPath_endcap_);
       graphDef_endcap_ = tensorflow::loadGraphDef(dnnPath_endcap.fullPath());
       tf_session_endcap_ = tensorflow::createSession(graphDef_endcap_);
-      edm::FileInPath dnnMetadataPath_endcap_full(dnnMetadataPath_endcap_);
-      metadataFile_endcap_ = TFile::Open(dnnMetadataPath_endcap_full.fullPath().c_str());
-      inpOrderHist_endcap_ = (TH1D*)(metadataFile_endcap_->Get("input_order"));
-      layerNamesHist_endcap_ = (TH1D*)(metadataFile_endcap_->Get("layer_names"));
-      decoderHist_endcap_ = (TH2D*)(metadataFile_endcap_->Get("scheme"));
   }
   produces<std::vector<TrajectorySeed> >();
 }
@@ -93,8 +84,6 @@ TSGForOIFromL2::~TSGForOIFromL2() {
         tensorflow::closeSession(tf_session_endcap_);
         delete graphDef_barrel_;
         delete graphDef_endcap_;
-        metadataFile_barrel_->Close();
-        metadataFile_endcap_->Close();
     }
 }
 
@@ -217,18 +206,10 @@ void TSGForOIFromL2::produce(edm::StreamID sid, edm::Event& iEvent, const edm::E
 
         if (std::abs(l2->eta())<etaSplitForDnn_){
             // barrel
-            evaluateDnn(
-                feature_map_, tf_session_barrel_,
-                inpOrderHist_barrel_, layerNamesHist_barrel_, decoderHist_barrel_,
-                nHBd, nHLIP, nHLMuS, dnnSuccess_
-            );
+	  std::tie(nHBd, nHLIP, nHLMuS, dnnSuccess_) =  evaluateDnn(feature_map_, tf_session_barrel_, metadata.get_child("barrel") );
         } else {
             // endcap
-            evaluateDnn(
-                feature_map_, tf_session_endcap_,
-                inpOrderHist_endcap_, layerNamesHist_endcap_, decoderHist_endcap_,
-                nHBd, nHLIP, nHLMuS, dnnSuccess_
-            );
+	  std::tie(nHBd, nHLIP, nHLMuS, dnnSuccess_) =  evaluateDnn(feature_map_, tf_session_endcap_, metadata.get_child("endcap") );
         }
         if (!dnnSuccess_) break;
         //std::cout << "DNN decision: " << nHBd << " " << nHLIP << " " << nHLMuS << std::endl;
@@ -909,31 +890,30 @@ std::map<std::string, float> TSGForOIFromL2::getFeatureMap(
 }
 
 
-void TSGForOIFromL2::evaluateDnn(
+std::tuple<int, int, int, bool> TSGForOIFromL2::evaluateDnn(
     std::map<std::string, float> feature_map,
     tensorflow::Session* session,
-    TH1D * inpOrderHist,
-    TH1D * layerNamesHist,
-    TH2D * decoderHist,
-    int& nHB,
-    int& nHLIP,
-    int& nHLMuS,
-    bool& dnnSuccess
+    const pt::ptree& metadata
 ) const {
-    int n_features = inpOrderHist->GetXaxis()->GetNbins();
-    
+    int nHB, nHLIP,nHLMuS, n_features = 0;
+    bool dnnSuccess = false;
+    n_features = metadata.get<int>("n_features", 0);
+    //std::cout<<"Number of features is "<<n_features<<std::endl;
     // Prepare tensor for DNN inputs
     tensorflow::Tensor input(tensorflow::DT_FLOAT, { 1, n_features });
     std::string fname;
-    for (int i=0; i<n_features; i++){
-        fname = inpOrderHist->GetXaxis()->GetBinLabel(i+1);
+    int i_feature = 0;
+    for (const pt::ptree::value_type &feature : metadata.get_child("feature_names")){
+        fname =  feature.second.data();
         if (feature_map.find(fname) == feature_map.end()) {
             std::cout << "Couldn't find " << fname << " in feature_map! Will not evaluate DNN." << std::endl;
-            return;
+            return std::make_tuple(nHB, nHLIP, nHLMuS, dnnSuccess);
         }
         else {
-            input.matrix<float>()(0, i) = float(feature_map.at(fname));
-            //std::cout << "Input #" << i << ": " << fname << " = " << feature_map.at(fname) << std::endl;
+            input.matrix<float>()(0, i_feature) = float(feature_map.at(fname));
+            //std::cout << "Input #" << i_feature << ": " << fname << " = " << feature_map.at(fname) << std::endl;
+	    i_feature++;
+
         }
     }
 
@@ -941,8 +921,8 @@ void TSGForOIFromL2::evaluateDnn(
     std::vector<tensorflow::Tensor> outputs;
 
     // Evaluate DNN and put results in output tensor
-    std::string inputLayer = layerNamesHist->GetXaxis()->GetBinLabel(1);
-    std::string outputLayer = layerNamesHist->GetXaxis()->GetBinLabel(2);
+    std::string inputLayer = metadata.get<std::string>("input_layer");
+    std::string outputLayer = metadata.get<std::string>("output_layer");
     //std::cout << inputLayer << " " << outputLayer << std::endl;
     tensorflow::run(session, { { inputLayer, input } }, { outputLayer }, &outputs);
     tensorflow::Tensor out_tensor = outputs[0];
@@ -961,19 +941,13 @@ void TSGForOIFromL2::evaluateDnn(
     }
 
     // Decode output
-    nHB = decoderHist->GetBinContent(1, imax+1);
-    nHLIP = decoderHist->GetBinContent(2, imax+1);
-    nHLMuS = decoderHist->GetBinContent(3, imax+1);
+    nHB = metadata.get<int>("output_labels.label_"+std::to_string(imax+1)+".nHB");
+    nHLIP = metadata.get<int>("output_labels.label_"+std::to_string(imax+1)+".nHLIP");
+    nHLMuS = metadata.get<int>("output_labels.label_"+std::to_string(imax+1)+".nHLMuS");
 
-    // If you want to verify that parameters are interpreted correctly,
-    // you can print out parameter names, stored as bin lables
-    /*for (int i=0; i<decoderHist->GetXaxis()->GetNbins(); i++){
-        std::cout << decoderHist->GetXaxis()->GetBinLabel(i+1) << std::endl;
-    }*/
-    
     //std::cout << "DNN output #"<< imax << ": " << nHB << " " << nHLIP << " " << nHLMuS << std::endl;
     dnnSuccess = true;
-    return;
+    return std::make_tuple(nHB, nHLIP, nHLMuS, dnnSuccess);
 }
 
 
@@ -1026,10 +1000,7 @@ void TSGForOIFromL2::fillDescriptions(edm::ConfigurationDescriptions& descriptio
   desc.add<unsigned int>("maxHitDoubletSeeds", 0);
   desc.add<bool>("getStrategyFromDNN", false);
   desc.add<double>("etaSplitForDnn", 1.0);
-  desc.add<std::string>("dnnModelPath_barrel", "");
-  desc.add<std::string>("dnnMetadataPath_barrel", "");
-  desc.add<std::string>("dnnModelPath_endcap", "");
-  desc.add<std::string>("dnnMetadataPath_endcap", "");
+  desc.add<std::string>("dnnMetadataPath", "");
   descriptions.add("TSGForOIFromL2", desc);
 }
 

@@ -33,8 +33,9 @@
 #include "PhysicsTools/TensorFlow/interface/TensorFlow.h"
 #include "TrackingTools/DetLayers/interface/NavigationSchool.h"
 #include "RecoTracker/Record/interface/NavigationSchoolRecord.h"
-#include <TFile.h>
-#include <TH2D.h>
+#include <boost/property_tree/ptree.hpp>
+#include <boost/property_tree/json_parser.hpp>
+namespace pt = boost::property_tree;
 
 
 class TSGForOIFromL2 : public edm::global::EDProducer<> {
@@ -118,25 +119,17 @@ private:
   /// Get number of seeds to use from DNN output instead of "max..Seeds" parameters
   const bool getStrategyFromDNN_;
   const double etaSplitForDnn_;
+  std::string dnnModelPath_barrel_;
+  std::string dnnModelPath_endcap_;
+  pt::ptree metadata;
 
   tensorflow::GraphDef* graphDef_barrel_;
   tensorflow::Session* tf_session_barrel_;
-  const std::string dnnModelPath_barrel_;
-  const std::string dnnMetadataPath_barrel_;
-  TFile * metadataFile_barrel_;
-  TH1D * inpOrderHist_barrel_;
-  TH1D * layerNamesHist_barrel_;
-  TH2D * decoderHist_barrel_;
+  const std::string dnnMetadataPath_;
 
   tensorflow::GraphDef* graphDef_endcap_;
   tensorflow::Session* tf_session_endcap_;
-  const std::string dnnModelPath_endcap_;
-  const std::string dnnMetadataPath_endcap_;
-  TFile * metadataFile_endcap_;
-  TH1D * inpOrderHist_endcap_;
-  TH1D * layerNamesHist_endcap_;
-  TH2D * decoderHist_endcap_;
-
+  //  pt::ptree metadata;
   /// Create seeds without hits on a given layer (TOB or TEC)
   void makeSeedsWithoutHits(const GeometricSearchDet& layer,
                             const TrajectoryStateOnSurface& tsos,
@@ -184,16 +177,10 @@ private:
   ) const;
     
   /// Evaluate DNN
-  void evaluateDnn(
+  std::tuple<int, int, int, bool>  evaluateDnn(
       std::map<std::string, float> feature_map,
       tensorflow::Session* session,
-      TH1D * inpOrderHist,
-      TH1D * layerNamesHist,
-      TH2D * decoderHist,
-      int& nHB,
-      int& nHLIP,
-      int& nHLMuS,
-      bool& dnnSuccess
+      const pt::ptree& metadata
   ) const;
 
 };
