@@ -1,7 +1,7 @@
 {
     "barrel": 
     {
-	"dnnmodel_name" : "RecoMuon/TrackerSeedGenerator/data/dnn_5_seeds_0.pb",
+	"dnnmodel_path" : "RecoMuon/TrackerSeedGenerator/data/dnn_5_seeds_0.pb",
         "n_features": 26,
         "feature_names": [
             "pt",
@@ -165,7 +165,7 @@
     },
     "endcap" : 
     {
-	"dnnmodel_name" : "RecoMuon/TrackerSeedGenerator/data/dnn_7_seeds_0.pb",
+	"dnnmodel_path" : "RecoMuon/TrackerSeedGenerator/data/dnn_7_seeds_0.pb",
         "n_features": 26,
         "feature_names": [
             "pt",

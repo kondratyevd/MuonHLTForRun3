@@ -65,17 +65,15 @@ TSGForOIFromL2::TSGForOIFromL2(const edm::ParameterSet& iConfig)
       pt::read_json(dnnMetadataPath.fullPath(), metadata);
       tensorflow::setLogging("2");
 
-      dnnModelPath_barrel_ = metadata.get<std::string>("barrel.dnnmodel_name");
-      std::cout<<dnnModelPath_barrel_;
+      dnnModelPath_barrel_ = metadata.get<std::string>("barrel.dnnmodel_path");
       edm::FileInPath dnnPath_barrel(dnnModelPath_barrel_);
       graphDef_barrel_ = tensorflow::loadGraphDef(dnnPath_barrel.fullPath());
       tf_session_barrel_ = tensorflow::createSession(graphDef_barrel_);
 
-      dnnModelPath_endcap_ = metadata.get<std::string>("endcap.dnnmodel_name");
+      dnnModelPath_endcap_ = metadata.get<std::string>("endcap.dnnmodel_path");
       edm::FileInPath dnnPath_endcap(dnnModelPath_endcap_);
       graphDef_endcap_ = tensorflow::loadGraphDef(dnnPath_endcap.fullPath());
       tf_session_endcap_ = tensorflow::createSession(graphDef_endcap_);
-      std::cout<<dnnModelPath_endcap_;
   }
   produces<std::vector<TrajectorySeed> >();
 }
@@ -214,7 +212,7 @@ void TSGForOIFromL2::produce(edm::StreamID sid, edm::Event& iEvent, const edm::E
 	  std::tie(nHBd, nHLIP, nHLMuS, dnnSuccess_) =  evaluateDnn(feature_map_, tf_session_endcap_, metadata.get_child("endcap") );
         }
         if (!dnnSuccess_) break;
-        std::cout << "DNN decision: " << nHBd << " " << nHLIP << " " << nHLMuS << std::endl;
+        //std::cout << "DNN decision: " << nHBd << " " << nHLIP << " " << nHLMuS << std::endl;
         maxHitSeeds__ = 0;
         maxHitDoubletSeeds__ = nHBd;
         maxHitlessSeedsIP__ = nHLIP;
@@ -900,7 +898,7 @@ std::tuple<int, int, int, bool> TSGForOIFromL2::evaluateDnn(
     int nHB, nHLIP,nHLMuS, n_features = 0;
     bool dnnSuccess = false;
     n_features = metadata.get<int>("n_features", 0);
-    std::cout<<"Number of features is "<<n_features<<std::endl;
+    //std::cout<<"Number of features is "<<n_features<<std::endl;
     // Prepare tensor for DNN inputs
     tensorflow::Tensor input(tensorflow::DT_FLOAT, { 1, n_features });
     std::string fname;
@@ -913,7 +911,7 @@ std::tuple<int, int, int, bool> TSGForOIFromL2::evaluateDnn(
         }
         else {
             input.matrix<float>()(0, i_feature) = float(feature_map.at(fname));
-            std::cout << "Input #" << i_feature << ": " << fname << " = " << feature_map.at(fname) << std::endl;
+            //std::cout << "Input #" << i_feature << ": " << fname << " = " << feature_map.at(fname) << std::endl;
 	    i_feature++;
 
         }
@@ -925,7 +923,7 @@ std::tuple<int, int, int, bool> TSGForOIFromL2::evaluateDnn(
     // Evaluate DNN and put results in output tensor
     std::string inputLayer = metadata.get<std::string>("input_layer");
     std::string outputLayer = metadata.get<std::string>("output_layer");
-    std::cout << inputLayer << " " << outputLayer << std::endl;
+    //std::cout << inputLayer << " " << outputLayer << std::endl;
     tensorflow::run(session, { { inputLayer, input } }, { outputLayer }, &outputs);
     tensorflow::Tensor out_tensor = outputs[0];
     tensorflow::TTypes<float, 1>::Matrix dnn_outputs = out_tensor.matrix<float>();
@@ -935,7 +933,7 @@ std::tuple<int, int, int, bool> TSGForOIFromL2::evaluateDnn(
     float out_max = 0;
     for (long long int i = 0; i < out_tensor.dim_size(1); i++) {
         float ith_output = dnn_outputs(0, i);
-        std::cout << outputLayer << "#" <<  i << " = " << ith_output << std::endl;
+        //std::cout << outputLayer << "#" <<  i << " = " << ith_output << std::endl;
         if (ith_output > out_max){
             imax = i;
             out_max = ith_output;
@@ -947,13 +945,7 @@ std::tuple<int, int, int, bool> TSGForOIFromL2::evaluateDnn(
     nHLIP = metadata.get<int>("output_labels.label_"+std::to_string(imax+1)+".nHLIP");
     nHLMuS = metadata.get<int>("output_labels.label_"+std::to_string(imax+1)+".nHLMuS");
 
-    // If you want to verify that parameters are interpreted correctly,
-    // you can print out parameter names, stored as bin lables
-    /*for (int i=0; i<decoderHist->GetXaxis()->GetNbins(); i++){
-        std::cout << decoderHist->GetXaxis()->GetBinLabel(i+1) << std::endl;
-    }*/
-    
-    std::cout << "DNN output #"<< imax << ": " << nHB << " " << nHLIP << " " << nHLMuS << std::endl;
+    //std::cout << "DNN output #"<< imax << ": " << nHB << " " << nHLIP << " " << nHLMuS << std::endl;
     dnnSuccess = true;
     return std::make_tuple(nHB, nHLIP, nHLMuS, dnnSuccess);
 }
