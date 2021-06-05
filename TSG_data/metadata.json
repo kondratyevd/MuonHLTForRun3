@@ -1,5 +1,6 @@
 {
-    "barrel": {
+    "barrel": 
+    {
 	"dnnmodel_name" : "RecoMuon/TrackerSeedGenerator/data/dnn_5_seeds_0.pb",
         "n_features": 26,
         "feature_names": [
@@ -162,7 +163,8 @@
 	"input_layer": "dnn_5_seeds_0_input",
         "output_layer": "model/dnn_5_seeds_0_output/Sigmoid"
     },
-    "endcap": {
+    "endcap" : 
+    {
 	"dnnmodel_name" : "RecoMuon/TrackerSeedGenerator/data/dnn_7_seeds_0.pb",
         "n_features": 26,
         "feature_names": [

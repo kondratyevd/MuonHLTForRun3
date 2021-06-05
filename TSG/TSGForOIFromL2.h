@@ -33,11 +33,10 @@
 #include "PhysicsTools/TensorFlow/interface/TensorFlow.h"
 #include "TrackingTools/DetLayers/interface/NavigationSchool.h"
 #include "RecoTracker/Record/interface/NavigationSchoolRecord.h"
-//#include <TFile.h>
-//#include <TH2D.h>
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/json_parser.hpp>
 namespace pt = boost::property_tree;
+
 
 class TSGForOIFromL2 : public edm::global::EDProducer<> {
 public:
@@ -61,7 +60,7 @@ private:
 
   /// How many layers to try
   const unsigned int numOfLayersToTry_;
-  
+
   /// How many hits to try per layer
   const unsigned int numOfHitsToTry_;
 
@@ -120,6 +119,8 @@ private:
   /// Get number of seeds to use from DNN output instead of "max..Seeds" parameters
   const bool getStrategyFromDNN_;
   const double etaSplitForDnn_;
+  std::string dnnModelPath_barrel_;
+  std::string dnnModelPath_endcap_;
   pt::ptree metadata;
 
   tensorflow::GraphDef* graphDef_barrel_;
@@ -128,7 +129,7 @@ private:
 
   tensorflow::GraphDef* graphDef_endcap_;
   tensorflow::Session* tf_session_endcap_;
-
+  //  pt::ptree metadata;
   /// Create seeds without hits on a given layer (TOB or TEC)
   void makeSeedsWithoutHits(const GeometricSearchDet& layer,
                             const TrajectoryStateOnSurface& tsos,
@@ -168,13 +169,18 @@ private:
   /// Find compatability between two TSOSs
   double match_Chi2(const TrajectoryStateOnSurface& tsos1, const TrajectoryStateOnSurface& tsos2) const;
   
-  /// Evaluate DNN
-  std::tuple<int, int, int, bool> evaluateDnn(
+  /// Dictionary of inputs for DNN
+  std::map<std::string, float> getFeatureMap(
       reco::TrackRef l2,
       const TrajectoryStateOnSurface& tsos_IP,     
-      const TrajectoryStateOnSurface& tsos_MuS,		   
+      const TrajectoryStateOnSurface& tsos_MuS
+  ) const;
+    
+  /// Evaluate DNN
+  std::tuple<int, int, int, bool>  evaluateDnn(
+      std::map<std::string, float> feature_map,
       tensorflow::Session* session,
-      pt::ptree metadata
+      const pt::ptree& metadata
   ) const;
 
 };

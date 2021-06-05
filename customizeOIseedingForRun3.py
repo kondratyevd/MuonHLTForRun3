@@ -52,9 +52,7 @@ def customizeOIseeding(process, newProcessName = "MYHLT"):
         tsosDiff1 = cms.double(0.2),
         tsosDiff2 = cms.double(0.02),
         getStrategyFromDNN = cms.bool(False), # will override max nSeeds of all types and Run2-behavior flags
-        #dnnModelPath = cms.string('RecoMuon/TrackerSeedGenerator/data/dnn_5_seeds_0.pb')
-        #dnnMetadataPath = cms.string('/home/purohita/Muon_HLT/Run3/CMSSW_11_2_0/src/dnnMetaData.json')
-        dnnMetadataPath = cms.string('/home/purohita/Muon_HLT/Run3/CMSSW_11_2_0/src/test_new.json')
+        dnnMetadataPath = cms.string('RecoMuon/TrackerSeedGenerator/data/metadata.json')
     )
 
     return process
