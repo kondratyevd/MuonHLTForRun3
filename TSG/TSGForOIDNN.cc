@@ -1,17 +1,17 @@
 /**
-  \class    TSGForOIFromL2
-  \brief    Create L3MuonTrajectorySeeds from L2 Muons updated at vertex in an outside-in manner
-  \author   Benjamin Radburn-Smith, Santiago Folgueras, Bibhuprasad Mahakud, Jan Frederik Schulte, Dmitry Kondratyev, Arnab Purohit (Purdue University, West Lafayette, USA)
+  \class    TSGForOIDNN
+  \brief    Create L3MuonTrajectorySeeds from L2 Muons in an outside-in manner
+  \author   Dmitry Kondratyev, Arnab Purohit, Jan-Frederik Schulte (Purdue University, West Lafayette, USA)
  */
 
-#include "RecoMuon/TrackerSeedGenerator/plugins/TSGForOIFromL2.h"
+#include "RecoMuon/TrackerSeedGenerator/plugins/TSGForOIDNN.h"
 #include "DataFormats/TrackerCommon/interface/TrackerTopology.h"
 #include "DataFormats/Math/interface/deltaR.h"
 #include "Geometry/TrackerGeometryBuilder/interface/TrackerGeometry.h"
 
 #include <memory>
 
-TSGForOIFromL2::TSGForOIFromL2(const edm::ParameterSet& iConfig)
+TSGForOIDNN::TSGForOIDNN(const edm::ParameterSet& iConfig)
     : src_(consumes<reco::TrackCollection>(iConfig.getParameter<edm::InputTag>("src"))),
       maxSeeds_(iConfig.getParameter<uint32_t>("maxSeeds")),
       maxHitSeeds_(iConfig.getParameter<uint32_t>("maxHitSeeds")),
@@ -50,7 +50,7 @@ TSGForOIFromL2::TSGForOIFromL2(const edm::ParameterSet& iConfig)
       tsosDiff1_(iConfig.getParameter<double>("tsosDiff1")),
       tsosDiff2_(iConfig.getParameter<double>("tsosDiff2")),
       propagatorName_(iConfig.getParameter<std::string>("propagatorName")),
-      theCategory_(std::string("Muon|RecoMuon|TSGForOIFromL2")),
+      theCategory_(std::string("Muon|RecoMuon|TSGForOIDNN")),
       maxHitlessSeedsIP_(iConfig.getParameter<uint32_t>("maxHitlessSeedsIP")),
       maxHitlessSeedsMuS_(iConfig.getParameter<uint32_t>("maxHitlessSeedsMuS")),
       maxHitDoubletSeeds_(iConfig.getParameter<uint32_t>("maxHitDoubletSeeds")),
@@ -76,7 +76,7 @@ TSGForOIFromL2::TSGForOIFromL2(const edm::ParameterSet& iConfig)
           produces<std::vector<TrajectorySeed> >();
       }
 
-TSGForOIFromL2::~TSGForOIFromL2() {
+TSGForOIDNN::~TSGForOIDNN() {
     if (getStrategyFromDNN_){
         tensorflow::closeSession(tf_session_barrel_);
         tensorflow::closeSession(tf_session_endcap_);
@@ -88,7 +88,7 @@ TSGForOIFromL2::~TSGForOIFromL2() {
 //
 // Produce seeds
 //
-void TSGForOIFromL2::produce(edm::StreamID sid, edm::Event& iEvent, const edm::EventSetup& iSetup) const {
+void TSGForOIDNN::produce(edm::StreamID sid, edm::Event& iEvent, const edm::EventSetup& iSetup) const {
     // Initialize variables
     unsigned int numSeedsMade = 0;
     unsigned int layerCount = 0;
@@ -146,29 +146,29 @@ void TSGForOIFromL2::produce(edm::StreamID sid, edm::Event& iEvent, const edm::E
     iSetup.get<TrackingComponentsRecord>().get("hltESPSteppingHelixPropagatorOpposite", SHPOpposite);
 
     // Loop over the L2's and make seeds for all of them
-    LogTrace(theCategory_) << "TSGForOIFromL2::produce: Number of L2's: " << l2TrackCol->size();
+    LogTrace(theCategory_) << "TSGForOIDNN::produce: Number of L2's: " << l2TrackCol->size();
     for (unsigned int l2TrackColIndex(0); l2TrackColIndex != l2TrackCol->size(); ++l2TrackColIndex) {
         const reco::TrackRef l2(l2TrackCol, l2TrackColIndex);
 
         // Container of Seeds
         std::vector<TrajectorySeed> out;
-        LogTrace("TSGForOIFromL2") << "TSGForOIFromL2::produce: L2 muon pT, eta, phi --> " << l2->pt() << " , " << l2->eta()
+        LogTrace("TSGForOIDNN") << "TSGForOIDNN::produce: L2 muon pT, eta, phi --> " << l2->pt() << " , " << l2->eta()
             << " , " << l2->phi() << std::endl;
 
         FreeTrajectoryState fts = trajectoryStateTransform::initialFreeState(*l2, magfieldH.product());
 
         dummyPlane->move(fts.position() - dummyPlane->position());
         TrajectoryStateOnSurface tsosAtIP = TrajectoryStateOnSurface(fts, *dummyPlane);
-        LogTrace("TSGForOIFromL2") << "TSGForOIFromL2::produce: Created TSOSatIP: " << tsosAtIP << std::endl;
+        LogTrace("TSGForOIDNN") << "TSGForOIDNN::produce: Created TSOSatIP: " << tsosAtIP << std::endl;
 
         // Get the TSOS on the innermost layer of the L2
         TrajectoryStateOnSurface tsosAtMuonSystem =
             trajectoryStateTransform::innerStateOnSurface(*l2, *geometryH, magfieldH.product());
-        LogTrace("TSGForOIFromL2") << "TSGForOIFromL2::produce: Created TSOSatMuonSystem: " << tsosAtMuonSystem
+        LogTrace("TSGForOIDNN") << "TSGForOIDNN::produce: Created TSOSatMuonSystem: " << tsosAtMuonSystem
             << std::endl;
 
-        LogTrace("TSGForOIFromL2")
-            << "TSGForOIFromL2::produce: Check the error of the L2 parameter and use hit seeds if big errors" << std::endl;
+        LogTrace("TSGForOIDNN")
+            << "TSGForOIDNN::produce: Check the error of the L2 parameter and use hit seeds if big errors" << std::endl;
 
         StateOnTrackerBound fromInside(propagatorAlong.get());
         TrajectoryStateOnSurface outerTkStateInside = fromInside(fts);
@@ -230,7 +230,7 @@ void TSGForOIFromL2::produce(edm::StreamID sid, edm::Event& iEvent, const edm::E
         if (absL2muonEta < maxEtaForTOB_) {
             layerCount = 0;
             for (auto it = tob.rbegin(); it != tob.rend(); ++it) {
-                LogTrace("TSGForOIFromL2") << "TSGForOIFromL2::produce: looping in TOB layer " << layerCount << std::endl;
+                LogTrace("TSGForOIDNN") << "TSGForOIDNN::produce: looping in TOB layer " << layerCount << std::endl;
 
                 if (useHitLessSeeds_ && hitlessSeedsMadeIP < maxHitlessSeedsIP__ && numSeedsMade < maxSeeds_)
                     makeSeedsWithoutHits(**it,
@@ -279,7 +279,7 @@ void TSGForOIFromL2::produce(edm::StreamID sid, edm::Event& iEvent, const edm::E
                                              out);
 
             }
-            LogTrace("TSGForOIFromL2") << "TSGForOIFromL2:::produce: NumSeedsMade = " << numSeedsMade
+            LogTrace("TSGForOIDNN") << "TSGForOIDNN:::produce: NumSeedsMade = " << numSeedsMade
                 << " , layerCount = " << layerCount << std::endl;
         }
 
@@ -296,7 +296,7 @@ void TSGForOIFromL2::produce(edm::StreamID sid, edm::Event& iEvent, const edm::E
         if (L2muonEta > minEtaForTEC_) {
             layerCount = 0;
             for (auto it = tecPositive.rbegin(); it != tecPositive.rend(); ++it) {
-                LogTrace("TSGForOIFromL2") << "TSGForOIFromL2::produce: looping in TEC+ layer " << layerCount << std::endl;
+                LogTrace("TSGForOIDNN") << "TSGForOIDNN::produce: looping in TEC+ layer " << layerCount << std::endl;
 
                 if (useHitLessSeeds_ && hitlessSeedsMadeIP < maxHitlessSeedsIP__ && numSeedsMade < maxSeeds_)
                     makeSeedsWithoutHits(**it,
@@ -345,7 +345,7 @@ void TSGForOIFromL2::produce(edm::StreamID sid, edm::Event& iEvent, const edm::E
                                              out);
 
             }
-            LogTrace("TSGForOIFromL2") << "TSGForOIFromL2:::produce: NumSeedsMade = " << numSeedsMade
+            LogTrace("TSGForOIDNN") << "TSGForOIDNN:::produce: NumSeedsMade = " << numSeedsMade
                 << " , layerCount = " << layerCount << std::endl;
         }
 
@@ -353,7 +353,7 @@ void TSGForOIFromL2::produce(edm::StreamID sid, edm::Event& iEvent, const edm::E
         if (L2muonEta < -minEtaForTEC_) {
             layerCount = 0;
             for (auto it = tecNegative.rbegin(); it != tecNegative.rend(); ++it) {
-                LogTrace("TSGForOIFromL2") << "TSGForOIFromL2::produce: looping in TEC- layer " << layerCount << std::endl;
+                LogTrace("TSGForOIDNN") << "TSGForOIDNN::produce: looping in TEC- layer " << layerCount << std::endl;
 
                 if (useHitLessSeeds_ && hitlessSeedsMadeIP < maxHitlessSeedsIP__ && numSeedsMade < maxSeeds_)
                     makeSeedsWithoutHits(**it,
@@ -402,7 +402,7 @@ void TSGForOIFromL2::produce(edm::StreamID sid, edm::Event& iEvent, const edm::E
                                              out);
 
             }
-            LogTrace("TSGForOIFromL2") << "TSGForOIFromL2:::produce: NumSeedsMade = " << numSeedsMade
+            LogTrace("TSGForOIDNN") << "TSGForOIDNN:::produce: NumSeedsMade = " << numSeedsMade
                 << " , layerCount = " << layerCount << std::endl;
         }
 
@@ -412,7 +412,7 @@ void TSGForOIFromL2::produce(edm::StreamID sid, edm::Event& iEvent, const edm::E
 
     }  // L2Collection
 
-    edm::LogInfo(theCategory_) << "TSGForOIFromL2::produce: number of seeds made: " << result->size();
+    edm::LogInfo(theCategory_) << "TSGForOIDNN::produce: number of seeds made: " << result->size();
 
     iEvent.put(std::move(result));
 }
@@ -420,7 +420,7 @@ void TSGForOIFromL2::produce(edm::StreamID sid, edm::Event& iEvent, const edm::E
 //
 // Create seeds without hits on a given layer (TOB or TEC)
 //
-void TSGForOIFromL2::makeSeedsWithoutHits(const GeometricSearchDet& layer,
+void TSGForOIDNN::makeSeedsWithoutHits(const GeometricSearchDet& layer,
                                           const TrajectoryStateOnSurface& tsos,
                                           const Propagator& propagatorAlong,
                                           edm::ESHandle<Chi2MeasurementEstimatorBase>& estimator,
@@ -429,13 +429,13 @@ void TSGForOIFromL2::makeSeedsWithoutHits(const GeometricSearchDet& layer,
                                           unsigned int& numSeedsMade,
                                           std::vector<TrajectorySeed>& out) const {
     // create hitless seeds
-    LogTrace("TSGForOIFromL2") << "TSGForOIFromL2::makeSeedsWithoutHits: Start hitless" << std::endl;
+    LogTrace("TSGForOIDNN") << "TSGForOIDNN::makeSeedsWithoutHits: Start hitless" << std::endl;
     std::vector<GeometricSearchDet::DetWithState> dets;
     layer.compatibleDetsV(tsos, propagatorAlong, *estimator, dets);
     if (!dets.empty()) {
         auto const& detOnLayer = dets.front().first;
         auto const& tsosOnLayer = dets.front().second;
-        LogTrace("TSGForOIFromL2") << "TSGForOIFromL2::makeSeedsWithoutHits: tsosOnLayer " << tsosOnLayer << std::endl;
+        LogTrace("TSGForOIDNN") << "TSGForOIDNN::makeSeedsWithoutHits: tsosOnLayer " << tsosOnLayer << std::endl;
         if (!tsosOnLayer.isValid()) {
             edm::LogInfo(theCategory_) << "ERROR!: Hitless TSOS is not valid!";
         } else {
@@ -444,7 +444,7 @@ void TSGForOIFromL2::makeSeedsWithoutHits(const GeometricSearchDet& layer,
                 trajectoryStateTransform::persistentState(tsosOnLayer, detOnLayer->geographicalId().rawId());
             TrajectorySeed::RecHitContainer rHC;
             out.push_back(TrajectorySeed(ptsod, rHC, oppositeToMomentum));
-            LogTrace("TSGForOIFromL2") << "TSGForOIFromL2::makeSeedsWithoutHits: TSOS (Hitless) done " << std::endl;
+            LogTrace("TSGForOIDNN") << "TSGForOIDNN::makeSeedsWithoutHits: TSOS (Hitless) done " << std::endl;
             hitlessSeedsMade++;
             numSeedsMade++;
         }
@@ -454,7 +454,7 @@ void TSGForOIFromL2::makeSeedsWithoutHits(const GeometricSearchDet& layer,
 //
 // Find hits on a given layer (TOB or TEC) and create seeds from updated TSOS with hit
 //
-void TSGForOIFromL2::makeSeedsFromHits(const GeometricSearchDet& layer,
+void TSGForOIDNN::makeSeedsFromHits(const GeometricSearchDet& layer,
                                        const TrajectoryStateOnSurface& tsos,
                                        const Propagator& propagatorAlong,
                                        edm::ESHandle<Chi2MeasurementEstimatorBase>& estimator,
@@ -475,7 +475,7 @@ void TSGForOIFromL2::makeSeedsFromHits(const GeometricSearchDet& layer,
     layer.compatibleDetsV(onLayer, propagatorAlong, *estimator, dets);
 
     // Find Measurements on each DetWithState
-    LogTrace("TSGForOIFromL2") << "TSGForOIFromL2::makeSeedsFromHits: Find measurements on each detWithState  "
+    LogTrace("TSGForOIDNN") << "TSGForOIDNN::makeSeedsFromHits: Find measurements on each detWithState  "
         << dets.size() << std::endl;
     std::vector<TrajectoryMeasurement> meas;
     for (std::vector<GeometricSearchDet::DetWithState>::iterator it = dets.begin(); it != dets.end(); ++it) {
@@ -495,7 +495,7 @@ void TSGForOIFromL2::makeSeedsFromHits(const GeometricSearchDet& layer,
     }
 
     // Update TSOS using TMs after sorting, then create Trajectory Seed and put into vector
-    LogTrace("TSGForOIFromL2") << "TSGForOIFromL2::makeSeedsFromHits: Update TSOS using TMs after sorting, then create "
+    LogTrace("TSGForOIDNN") << "TSGForOIDNN::makeSeedsFromHits: Update TSOS using TMs after sorting, then create "
         "Trajectory Seed, number of TM = "
         << meas.size() << std::endl;
     std::sort(meas.begin(), meas.end(), TrajMeasLessEstim());
@@ -503,7 +503,7 @@ void TSGForOIFromL2::makeSeedsFromHits(const GeometricSearchDet& layer,
     unsigned int found = 0;
     for (std::vector<TrajectoryMeasurement>::const_iterator it = meas.begin(); it != meas.end(); ++it) {
         TrajectoryStateOnSurface updatedTSOS = updator_->update(it->forwardPredictedState(), *it->recHit());
-        LogTrace("TSGForOIFromL2") << "TSGForOIFromL2::makeSeedsFromHits: TSOS for TM " << found << std::endl;
+        LogTrace("TSGForOIDNN") << "TSGForOIDNN::makeSeedsFromHits: TSOS for TM " << found << std::endl;
         if (not updatedTSOS.isValid())
             continue;
 
@@ -511,7 +511,7 @@ void TSGForOIFromL2::makeSeedsFromHits(const GeometricSearchDet& layer,
         seedHits.push_back(*it->recHit()->hit());
         PTrajectoryStateOnDet const& pstate =
             trajectoryStateTransform::persistentState(updatedTSOS, it->recHit()->geographicalId().rawId());
-        LogTrace("TSGForOIFromL2") << "TSGForOIFromL2::makeSeedsFromHits: Number of seedHits: " << seedHits.size()
+        LogTrace("TSGForOIDNN") << "TSGForOIDNN::makeSeedsFromHits: Number of seedHits: " << seedHits.size()
             << std::endl;
         TrajectorySeed seed(pstate, std::move(seedHits), oppositeToMomentum);
         out.push_back(seed);
@@ -530,7 +530,7 @@ void TSGForOIFromL2::makeSeedsFromHits(const GeometricSearchDet& layer,
 
 
 
-void TSGForOIFromL2::makeSeedsFromHitDoublets(const GeometricSearchDet& layer,
+void TSGForOIDNN::makeSeedsFromHitDoublets(const GeometricSearchDet& layer,
                                               const TrajectoryStateOnSurface& tsos,
                                               const Propagator& propagatorAlong,
                                               edm::ESHandle<Chi2MeasurementEstimatorBase>& estimator,
@@ -561,7 +561,7 @@ void TSGForOIFromL2::makeSeedsFromHitDoublets(const GeometricSearchDet& layer,
     std::vector< GeometricSearchDet::DetWithState > dets;
     layer.compatibleDetsV(onLayer, propagatorAlong, *estimator, dets);
 
-    LogTrace("TSGForOIFromL2") << "TSGForOIFromL2::makeSeedsFromHitDoublets: Find measurements on each detWithState  " << dets.size() << std::endl;
+    LogTrace("TSGForOIDNN") << "TSGForOIDNN::makeSeedsFromHitDoublets: Find measurements on each detWithState  " << dets.size() << std::endl;
     std::vector<TrajectoryMeasurement> meas;
     
     // Loop over dets
@@ -580,7 +580,7 @@ void TSGForOIFromL2::makeSeedsFromHitDoublets(const GeometricSearchDet& layer,
         } // end loop over meas
     } // end loop over dets
 
-    LogTrace("TSGForOIFromL2") << "TSGForOIFromL2::makeSeedsFromHitDoublets: Update TSOS using TMs after sorting, then create Trajectory Seed, number of TM = " << meas.size() << std::endl;
+    LogTrace("TSGForOIDNN") << "TSGForOIDNN::makeSeedsFromHitDoublets: Update TSOS using TMs after sorting, then create Trajectory Seed, number of TM = " << meas.size() << std::endl;
 
     // sort valid measurements found on the first layer
     std::sort(meas.begin(), meas.end(), TrajMeasLessEstim());
@@ -595,7 +595,7 @@ void TSGForOIFromL2::makeSeedsFromHitDoublets(const GeometricSearchDet& layer,
         // Update TSOS with measurement on first considered layer
         TrajectoryStateOnSurface updatedTSOS = updator_->update(mea->forwardPredictedState(), *mea->recHit());
 
-        LogTrace("TSGForOIFromL2") << "TSGForOIFromL2::makeSeedsFromHitDoublets: TSOS for TM " << found << std::endl;
+        LogTrace("TSGForOIDNN") << "TSGForOIDNN::makeSeedsFromHitDoublets: TSOS for TM " << found << std::endl;
         if (not updatedTSOS.isValid()) continue;    // Skip if updated TSOS is invalid
 
         edm::OwnVector<TrackingRecHit> seedHits;
@@ -684,7 +684,7 @@ void TSGForOIFromL2::makeSeedsFromHitDoublets(const GeometricSearchDet& layer,
         PTrajectoryStateOnDet const& pstate = trajectoryStateTransform::persistentState(updatedTSOS_next, det_id);
         TrajectorySeed seed(pstate, std::move(seedHits), oppositeToMomentum);
 
-        LogTrace("TSGForOIFromL2") << "TSGForOIFromL2::makeSeedsFromHitDoublets: Number of seedHits: " << seedHits.size() << std::endl;
+        LogTrace("TSGForOIDNN") << "TSGForOIDNN::makeSeedsFromHitDoublets: Number of seedHits: " << seedHits.size() << std::endl;
         out.push_back(seed);
 
         found++;
@@ -705,7 +705,7 @@ void TSGForOIFromL2::makeSeedsFromHitDoublets(const GeometricSearchDet& layer,
 //
 // Calculate the dynamic error SF by analysing the L2
 //
-double TSGForOIFromL2::calculateSFFromL2(const reco::TrackRef track) const {
+double TSGForOIDNN::calculateSFFromL2(const reco::TrackRef track) const {
     double theSF = 1.0;
     // L2 direction vs pT blowup - as was previously done:
     // Split into 4 pT ranges: <pT1_, pT1_<pT2_, pT2_<pT3_, <pT4_: 13,30,70
@@ -744,12 +744,12 @@ double TSGForOIFromL2::calculateSFFromL2(const reco::TrackRef track) const {
             theSF = SF5_;
     }
 
-    LogTrace(theCategory_) << "TSGForOIFromL2::calculateSFFromL2: SF has been calculated as: " << theSF;
+    LogTrace(theCategory_) << "TSGForOIDNN::calculateSFFromL2: SF has been calculated as: " << theSF;
 
     return theSF;
 }
 
-std::map<std::string, float> TSGForOIFromL2::getFeatureMap(
+std::map<std::string, float> TSGForOIDNN::getFeatureMap(
     reco::TrackRef l2,
     const TrajectoryStateOnSurface& tsos_IP,
     const TrajectoryStateOnSurface& tsos_MuS
@@ -815,7 +815,7 @@ std::map<std::string, float> TSGForOIFromL2::getFeatureMap(
 }
 
 
-std::tuple<int, int, int, bool> TSGForOIFromL2::evaluateDnn(
+std::tuple<int, int, int, bool> TSGForOIDNN::evaluateDnn(
     std::map<std::string, float> feature_map,
     tensorflow::Session* session,
     const pt::ptree& metadata
@@ -879,7 +879,7 @@ std::tuple<int, int, int, bool> TSGForOIFromL2::evaluateDnn(
 //
 //
 //
-void TSGForOIFromL2::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
+void TSGForOIDNN::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
   edm::ParameterSetDescription desc;
   desc.add<edm::InputTag>("src", edm::InputTag("hltL2Muons", "UpdatedAtVtx"));
   desc.add<int>("layersToTry", 2);
@@ -924,7 +924,7 @@ void TSGForOIFromL2::fillDescriptions(edm::ConfigurationDescriptions& descriptio
   desc.add<bool>("getStrategyFromDNN", false);
   desc.add<double>("etaSplitForDnn", 1.0);
   desc.add<std::string>("dnnMetadataPath", "");
-  descriptions.add("TSGForOIFromL2", desc);
+  descriptions.add("TSGForOIDNN", desc);
 }
 
-DEFINE_FWK_MODULE(TSGForOIFromL2);
+DEFINE_FWK_MODULE(TSGForOIDNN);

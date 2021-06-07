@@ -1,10 +1,10 @@
-#ifndef RecoMuon_TrackerSeedGenerator_TSGForOIFromL2_H
-#define RecoMuon_TrackerSeedGenerator_TSGForOIFromL2_H
+#ifndef RecoMuon_TrackerSeedGenerator_TSGForOIDNN_H
+#define RecoMuon_TrackerSeedGenerator_TSGForOIDNN_H
 
 /**
- \class    TSGForOIFromL2
+ \class    TSGForOIDNN
  \brief    Create L3MuonTrajectorySeeds from L2 Muons updated at vertex in an outside-in manner
- \author   Benjamin Radburn-Smith, Santiago Folgueras, Bibhuprasad Mahakud, Jan Frederik Schulte, Dmitry Kondratyev (Purdue University, West Lafayette)
+ \author   Dmitry Kondratyev, Arnab Purohit, Jan-Frederik Schulte (Purdue University, West Lafayette)
  */
 
 #include "DataFormats/TrackReco/interface/Track.h"
@@ -38,10 +38,10 @@
 namespace pt = boost::property_tree;
 
 
-class TSGForOIFromL2 : public edm::global::EDProducer<> {
+class TSGForOIDNN : public edm::global::EDProducer<> {
     public:
-    explicit TSGForOIFromL2(const edm::ParameterSet& iConfig);
-    ~TSGForOIFromL2() override;
+    explicit TSGForOIDNN(const edm::ParameterSet& iConfig);
+    ~TSGForOIDNN() override;
     static void fillDescriptions(edm::ConfigurationDescriptions& descriptions);
     void produce(edm::StreamID sid, edm::Event& iEvent, const edm::EventSetup& iSetup) const override;
 

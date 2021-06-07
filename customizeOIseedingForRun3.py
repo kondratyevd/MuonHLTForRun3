@@ -6,10 +6,10 @@ def customizeOIseeding(process, newProcessName = "MYHLT"):
     """
     - adds doublet-like HB seeds (maxHitDoubletSeeds)
     - HL seeds from two trajectories (IP, MuS) are considered separate types
-    - can disable Run2 behaviors via variables useBothAsInRun2 and dontCreateHitbasedInBarrelAsInRun2
+    - Number of seeds of each type can be determined individually for each L2 muon using a DNN
     """
     
-    process.hltIterL3OISeedsFromL2Muons = cms.EDProducer( "TSGForOIFromL2",
+    process.hltIterL3OISeedsFromL2Muons = cms.EDProducer( "TSGForOIDNN",
         MeasurementTrackerEvent = cms.InputTag("hltSiStripClusters"),
         SF1 = cms.double(3.0),
         SF2 = cms.double(4.0),
@@ -49,7 +49,7 @@ def customizeOIseeding(process, newProcessName = "MYHLT"):
         src = cms.InputTag("hltL2Muons","UpdatedAtVtx"),
         tsosDiff1 = cms.double(0.2),
         tsosDiff2 = cms.double(0.02),
-        getStrategyFromDNN = cms.bool(False), # will override max nSeeds of all types and Run2-behavior flags
+        getStrategyFromDNN = cms.bool(False), # will override max nSeeds of all types
         dnnMetadataPath = cms.string('RecoMuon/TrackerSeedGenerator/data/metadata.json')
     )
 
